@@ -1,0 +1,6 @@
+applications:
+- name: yazaki-MW
+  memory: 2048M
+  # tesseract (OCR processing) cannot be worked in the debug mode.
+  #command: node --inspect app.js
+  #command: npm run start

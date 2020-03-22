@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<!-- Put the meta tag below for mobile responsive -->
+		<meta name="viewport" content="width=device-width" charset="utf-8">
+		<title>iITSM </title>
+		<!-- Main Stylesheet File -->
+		<link href="../css/style.css" rel="stylesheet">
+		<!-- MY CSS -->
+		<link rel="stylesheet" href="../css/myStyle.css" />
+	</head>
+	<body>
+		<!-- ********** User Information ********** -->
+		<div>
+			<h6 class="userIdHeader"> Your User ID of SCP = <%= userId %> </h6>
+		</div>
+
+		<!-- ********** NAVIGATOR ********** -->
+		<div id="topnav" class="navbar navbar-inverse navbar-fixed-top" role="navigation">
+			<div class="container">
+				<div class="navbar-header">
+				<button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+					<span class="sr-only">Toggle navigation</span>
+					<span class="icon-bar"></span>
+					<span class="icon-bar"></span>
+					<span class="icon-bar"></span>
+					</button>
+				</div>
+				<div class="collapse navbar-collapse">
+				<ul class="nav navbar-nav navbar-right">
+					<li class="active"><a href="#h" class="smoothscroll">Home</a></li>
+					<li><a href="#about" class="smoothscroll">About</a></li>
+				</ul>
+				</div>
+				<!--/.nav-collapse -->
+			</div>
+		</div>
+
+		<!-- ********** HEADER ********** -->
+		<div id="h">
+			<div class="container">
+				<div class="row">
+					<div class="col-md-10 col-md-offset-1 centered">
+						<h1 data-effect="slide-bottom">IT Support Portal</h1>
+						<hr class="aligncenter">
+						<h2>Intelligent ITSM accelerates your daily operation.</h2>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- ********** FIRST PART ********** -->
+		<div id="about"></div>
+		<div class="container">
+		  <div class="row mtb">
+			<div class="col-md-8 col-md-offset-2 centered">
+			  <h1>What is Intelligent ITSM about?</h1>
+			  <h4 class="mtb">ITSM process is executed automatically by SAP Conversational AI (ChatBot) and SAP Service Ticket Intelligence (Machine Learning solution for ITSM). End users no longer need to wait for solving an issue. Service Desk members also no longer need to handle the same incident repeatedly.</h4>
+			  <img src="../img/ls-watch.png" class="img-responsive aligncenter" alt="" data-effect="slide-bottom">
+			</div>
+	  
+		  </div>
+		</div>
+
+		<!-- ********** COPYRIGHTS ********** -->
+		<div id="copyrights">
+			<div class="container">
+				<p>
+				&copy; Copyrights <strong>GadgetLanding</strong>. All Rights Reserved
+				</p>
+				<div class="credits">
+				<!--
+					You are NOT allowed to delete the credit link to TemplateMag with free version.
+					You can delete the credit link only if you bought the pro version.
+					Buy the pro version with working PHP/AJAX contact form: https://templatemag.com/gadgetlanding-bootstrap-landing-template/
+					Licensing information: https://templatemag.com/license/
+				-->
+				Created with GadgetLanding template by <a href="https://templatemag.com/">TemplateMag</a>
+				</div>
+			</div>
+		</div>
+		
+		<!-- IITSM: Github pages (CDN) --> 
+		<!-- iITSM CHAT -->
+		<script src="https://pocsap.github.io/webchat/current/webchat.js"
+		channelId="42e0f538-e9f9-4adb-bb5b-653915d56071"
+		token="b221fdab8c91e36225b7b3227ee44565"
+		id="cai-webchat"
+		></script>
+		
+		<!-- TEST CHAT 
+		<script src="https://pocsap.github.io/webchat/current/webchat.js"
+		channelId="9901b851-92d3-4da9-b8be-cb7c6874a0d3"
+		token="6d790ca464f5fd81b59ddba7e9713100"
+		id="cai-webchat"
+		></script>
+		-->
+        
+	</body>
+</html>

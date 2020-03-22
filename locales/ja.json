@@ -1,0 +1,27 @@
+{
+	"general": {
+		"msgNoRFC": "システム: {{sid}}, クライアント: {{client}} の RFC 宛先がテーブル SCDTSYSRFC に見つかりませんでした。\n",
+		"msgFailFM": "汎用モジュールの実行でエラーが発生しました。下記エラーメッセージを確認ください。\n",
+		"msgFinish": "ご利用ありがとうございました。\n",
+		"msgIncidentCreate": "そのためインシデントを作成します。\n",
+		"incidentPrologue": "<<このインシデントは SAP Conversational AI での会話の結果、作成されています>>\n\nSAP Conversational AI によって自動的に問題を解決しようとしましたが、不可能でした。\n\n",
+		"incidentLongT_Err": "下記のエラーを確認して解決策の提示をお願いします\n\n<<エラーメッセージ>>\n",
+		"btnIncidentTitle": "チケット情報",
+		"btnIncidentLink": "チケットへのリンク",
+		"autoSolvedReplyMessage": "問題が自動的に解決された場合でもインシデントを作成するような設定になっているため、インシデントを作成しています。",
+		"autoSolvedIncidentRemarkPrologue": "<<このインシデントは SAP Conversational AI にてすでに解決済みです>>\n\n",
+		"autoSolvedIncidentRemarkEpilogue": "\n\n(このインシデントは、どのくらいの問題が自動的に解決されたかの統計を確認するために作成されています。)",
+		"msgNoAutoSolvedIncidentCreate": "現在の設定では、自動的に解決したインシデントの作成をしないようになっています。",
+		"msgCreateIncidentInProcess": "インシデントを作成しています…"
+	},
+	"createIncident": {
+		"msgSuccess": "Redmine のチケットを作成しました。タイトル: {{subject}}。",
+		"msgFailed": "チケットの作成に失敗しました。\n\n",
+		"mailSubject": "Redmine のチケットを作成しました, イシュー ID: {{issueID}}。",
+		"mailText": "作成されたチケットのタイトルは、“{{title}}” です。\nチケットへのリンクは、こちらになります。\n"
+	},
+	"attachFiles": {
+		"msgAttachFailed": "添付すべきファイルは存在していますが、ファイルを転送および添付するプロシージャ(_attachFilesProc) でエラーが発生し、ABAP システム側にファイルを転送および添付できませんでした。\nエラーの詳細は下記です。\n"
+	},
+	"TEST_MSG": "これはテストメッセージです。"
+}

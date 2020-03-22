@@ -1,0 +1,27 @@
+{
+	"general":{
+		"msgNoRFC": "No RFC destiation is found for SID: {{sid}}, Client: {{client}} in the table SCDTSYSRFC.\n",
+		"msgFailFM": "Calling function module is failed. See the error message below.\n",
+		"msgFinish": "Thanks for using!\n",
+		"msgIncidentCreate": "So the incident will be created.\n",
+		"incidentPrologue": "<<This incident was created after the conversation through SAP Conversational AI>>\n\nEven though SAP Conversational AI tried to solve the problem, it was not possible to solve it automatically.\n\n",
+		"incidentLongT_Err": "Please manually check the error below.\n\n<<Error Message>>\n",
+		"btnIncidentTitle": "Ticket Information",
+		"btnIncidentLink": "Link to the ticket",
+		"autoSolvedReplyMessage": "Even if the problem is solved automatically, creation of an incident is mandatory according to the setting.\nTherefore the system is creating an incident.",
+		"autoSolvedIncidentRemarkPrologue": "<<This incident is already solved by SAP Conversatinal AI>>\n\n",
+		"autoSolvedIncidentRemarkEpilogue": "\n\n(This incident was created for the statistic to check how many incidents were solved automatically)",
+		"msgNoAutoSolvedIncidentCreate": "Automatically solved incident is not created in the current setting.",
+		"msgCreateIncidentInProcess": "Incident creation is in process..."
+	},
+	"createIncident": {
+		"msgSuccess": "Redmine Ticket is created with the subject {{subject}}.",
+		"msgFailed": "Redmine ticket creation was failed.\n\n",
+		"mailSubject": "Redmine ticket was created, issue ID: {{issueID}}.",
+		"mailText": "Created ticket's title is {{title}}.\nHere is link to the ticket.\n"
+	},
+	"attachFiles": {
+		"msgAttachFailed": "Even though the file(s) should be attached are existing, the error was happened while sending/attaching(_attachFilesProc) files to ABAP side.\nThe reason is as follow.\n"
+	},
+	"TEST_MSG": "This is the test message"
+}

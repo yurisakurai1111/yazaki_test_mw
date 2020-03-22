@@ -1,0 +1,8 @@
+
+#Node packages
+node_modules/
+credentials.json
+credentials.js
+UploadedFiles/*
+!.gitkeep
+*traineddata
