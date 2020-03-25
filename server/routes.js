@@ -24,6 +24,7 @@ const
 	multer = require( 'multer' ),
 	PROC_LOG_DIR = "./server/log",
 	PATH_CREATE_INCIDENT = "/create_incident",
+	PATH_SEARCH_MANUAL = "/search_manual",
 	PATH_UPLOAD_FILES = "/upload_files",
 	PATH_OPEN_CHAT = "/chat",
 	PATH_OPEN_CHAT_UAA = "/chat_uaa",
@@ -380,6 +381,40 @@ configRoutes = function( app, server )
 		reqHandlers.createIncident( response, incidentContents, recastConvId, _replyToCAI );
 
 	});
+
+	app.post( PATH_SEARCH_MANUAL, passport.authenticate('basic', { session: false }), (request, response) => {
+		console.log( `=== Route: ${request.path} ===` );
+
+		const convLang = request.body.conversation.language;
+
+		reqHandlers.searchManual( convLang, request.body.conversation.memory.bizop_proc_searchPhrase, ( manuals ) => {
+			let replyElements = [];
+
+			for ( let i = 0; i < 5; i++ ){
+				
+				const replyElemObj = {
+					title: manuals[i].ref,
+					subtitle: 'TEST',
+					buttons:[]
+				}
+
+				replyElements.push( replyElemObj );
+			}
+
+			response.send({
+				replies: [
+				{
+					type: 'list',
+					content: {
+						elements: replyElements
+					},
+					markdown: true
+				}]
+			});
+			
+		});
+
+	})
 
 	app.post('/errors', function( request, response ){
 		console.log( "=== Route: app.post: /errors ===" );

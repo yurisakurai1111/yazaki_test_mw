@@ -42,10 +42,11 @@ const
 	REDMINE_HEADER_CONTENT_TYPE = 'application/json',
 	REDMINE_HEADER_BASICAUTH = `Basic ${REDMINE_TOKEN}`,
 	REDMINE_HEADER_OBJECT = { 'Content-Type': REDMINE_HEADER_CONTENT_TYPE, 'Authorization': REDMINE_HEADER_BASICAUTH },
+	lunr = require('lunr'),
 	sendmail = require('sendmail')(),
 	SapCfMailer = require('sap-cf-mailer').default,
-	SMTP_SERVER = 'mailsin.sap.corp',
-	//SMTP_SERVER = '10.33.52.41',
+	//SMTP_SERVER = 'mailsin.sap.corp',
+	SMTP_SERVER = '10.33.52.41',
 	SMTP_SERVER_PORT = 25,
 	MAIL_FROM_ADDRESS = credentialInfo.MAIL_INFO.FROM_ADDRESS,
 	MAIL_FROM_ADDRESS_PASS = credentialInfo.MAIL_INFO.FROM_ADDRESS_PASS,
@@ -98,7 +99,9 @@ var
 	smtp,
 	_sendMail,
 	_getFileTokenByUpload,
-	_uploadFileToRedmine
+	_uploadFileToRedmine,
+	createLunrIndex,
+	searchManual
 	;
 
 //==========================
@@ -119,7 +122,8 @@ _getFileTokenByUpload = ( convID ) => {
 
 	const
 		_uploadedDir = UPLOAD_FILE_DIR + "/" + convID,
-		REDMINE_UPLOAD_FILE_URL = `${REDMINE_URL}/uploads.json`
+		REDMINE_UPLOAD_FILE_URL = `${REDMINE_URL}/uploads.json`,
+		authConfig = require('./lib/share').authConfig
 		;
 
 	let
@@ -128,7 +132,7 @@ _getFileTokenByUpload = ( convID ) => {
 		_fileData,
 		uploadedFiles = [],
 		uploadedFilesInfo,
-		axiosOptions = require('./lib/share').authConfig || { headers: {} }
+		axiosOptions = authConfig || { headers: {} }
 		;
 
 	axiosOptions.headers['Content-Type'] = 'application/octet-stream';
@@ -223,7 +227,7 @@ _creIncidentLogging = ( logFile, logData, convId ) => {
 _sendMail = ( mailContents ) => {
 	console.log(`=== Sub procedure: _sendMail ===`);
 	console.dir(mailContents);
-	/*
+	
 	try {
 		smtp.sendMail( mailContents, (error, info) => {
 			// Error
@@ -238,15 +242,17 @@ _sendMail = ( mailContents ) => {
 	catch( e ){
 		console.error(`!!! Error was catched during sending the e-mail by ${e} !!!`);
 	}
-	*/
+	
 	/*
 	sendmail( mailContents, ( err, reply ) => {
 		console.log( err && err.stack );
 		console.dir( reply );
 	} );
 	*/
+	/*
 	const transporter = new SapCfMailer('MAILTRAP');
 	transporter.sendMail( mailContents );
+	*/
 };
 
 
@@ -347,7 +353,8 @@ deleteUploadedDirFiles = function( dirPath ){
 
 createIncident = async ( res, incidentContents, convID, callback ) => {
 	const 
-		CREATE_INCIDENT_URL = REDMINE_URL + '/issues.json'
+		CREATE_INCIDENT_URL = REDMINE_URL + '/issues.json',
+		authConfig = require('./lib/share').authConfig
 		;
 
 	let 
@@ -360,27 +367,54 @@ createIncident = async ( res, incidentContents, convID, callback ) => {
 			subject: '',
 			text: ''
 		},
-		axiosOptions = require('./lib/share').authConfig || { headers: {} },
-		uploadedFilesInfo
+		axiosOptions = authConfig || { headers: {} },
+		uploadedFilesInfo,
+		vcapProxyPortSocks5
 		;
 
 	console.log( "=== Procedure: 'createIncident' ===" );
 	
-	axiosOptions.headers['Content-Type'] = REDMINE_HEADER_CONTENT_TYPE;
 	axiosOptions.headers.Authorization = REDMINE_HEADER_BASICAUTH;
 
+	// >>>>> Mail Test Start >>>>>>>>>>>>>>
 	/*
-	if ( authConfig ){
-		let proxyHostPort = `https://${authConfig.proxy.host}:${authConfig.proxy.port}`;
-		console.log(`>>> Proxy Host:Port >>> ${proxyHostPort}`);
+	if ( process.env.VCAP_SERVICES ){
+		vcapServices = JSON.parse( process.env.VCAP_SERVICES );
+		vcapClientID = vcapServices.connectivity[0].credentials.clientid;
+		vcapClientSecret = vcapServices.connectivity[0].credentials.clientsecret;
+		vcapProxyPortSocks5 = vcapServices.connectivity[0].credentials.onpremise_socks5_proxy_port;
+	}
+
+	if ( authConfig && vcapProxyPortSocks5 ){
+		const proxyType = 'SOCKS5';
+		let
+			proxyHost = authConfig.proxy.host,
+			proxyPort = ( proxyType === 'HTTP' ) ? authConfig.proxy.port: vcapProxyPortSocks5,
+			proxyProtocol = ( proxyType === 'HTTP' ) ? 'http:' : 'socks5:',
+			proxyAuth = `${vcapClientID}:${vcapClientSecret}`,
+			proxyAuthObj = {
+				type: 'OAuth2',
+				user: credentialInfo.SCP.mailAddr,
+				accessToken: authConfig.headers['Proxy-Authorization'].substr( 7 )
+			},
+			proxyObject = {
+				host: proxyHost,
+				port: proxyPort,
+				protocol: proxyProtocol,
+				auth: proxyAuthObj
+			},
+			proxyHostPortSocks5 = `socks5://${proxyAuth}@${proxyHost}:${proxyPort}`
+		;
 
 		smtp = nodemailer.createTransport({
 			host: SMTP_SERVER, 
 			port: SMTP_SERVER_PORT,
 			secure: false,
-			tls: {rejectUnauthorized: false}
-			//proxy: proxyHostPort
+			tls: {rejectUnauthorized: false},
+			proxy: proxyObject
 		});
+
+		smtp.set('proxy_socks_module', require('socks'));
 	}
 	else {
 		smtp = nodemailer.createTransport({
@@ -390,19 +424,33 @@ createIncident = async ( res, incidentContents, convID, callback ) => {
 			tls: {rejectUnauthorized: false}
 		});
 	}
-	*/
-	/*
+	
 	replyMsg = 'Sending the mail only.';
 	mailContents.subject = ( authConfig ) ? 'Test Mail from SCP' : 'Test Mail from Local';
 	mailContents.text = ( authConfig ) ? 'This mail was sent from Node App on SCP' : 'This mail was sent from Node App on Local PC';
 	callback( res, replyMsg );
 	_sendMail( mailContents );
+	
+	// <<< Mail Test END <<<<<<<<<<<<
 	*/
 
 	// File Attachment processing block
-	uploadedFilesInfo = await _getFileTokenByUpload( convID ).catch( ( err ) => { console.error(`!!! Catched Error when getting uploaded file(s) information !!!`); });
+	uploadedFilesInfo = await _getFileTokenByUpload( convID )
+						.catch( ( err ) => { console.error(`!!! Catched Error when getting uploaded file(s) information with the message "${err.message}" !!!`); });
 	
 	if ( uploadedFilesInfo ) incidentContents.issue.uploads = uploadedFilesInfo;
+
+	// Because the following value was changed in the sub procedure, it is necessary to set it here, just before axios.post.
+	axiosOptions.headers['Content-Type'] = REDMINE_HEADER_CONTENT_TYPE;
+
+	console.log(`>>> axios options length: ${Object.keys(axiosOptions).length} <<<`);
+	console.log(`>>> axios options, headers.content-type: ${axiosOptions.headers['Content-Type']} <<<`);
+	console.log(`>>> axios options, headers.authorization: ${axiosOptions.headers.Authorization} <<<`);
+	if (axiosOptions.proxy ) {
+		console.log(`>>> axios options, proxy.host: ${axiosOptions.proxy.host} <<<`);
+		console.log(`>>> axios options, proxy.port: ${axiosOptions.proxy.port} <<<`);
+		console.log(`>>> axios options, headers.proxy-auth: ${axiosOptions.headers['Proxy-Authorization']} <<<`);
+	}
 
 	// Incident creation.
 	performance.mark('createIncidentStart');
@@ -426,19 +474,112 @@ createIncident = async ( res, incidentContents, convID, callback ) => {
 
 		callback( res, replyMsg, replyUrl );
 		//_sendMail( mailContents );
-		
+
 	})
 	.catch( function ( error ){
-		console.error( "!!! axios.post in createIncident is failed (catched error) !!!", error );
-			replyMsg = res.__('createIncident.msgFailed');
+		console.error( "!!! axios.post in createIncident is failed (catched error) !!!", error.message );
+		replyMsg = res.__('createIncident.msgFailed');
+
+		callback( res, replyMsg, replyUrl );
+		//_sendMail( mailContents );
 	});
+};
+
+createLunrIndex = ( lang, lunrIndexFileName ) => {
+	console.log(`=== createLunrIndex ===`);
+
+	let manuals;
+
+	// lunr-languagesは分かち書き時に使われる。検索のみ行うときはこれらの require は必要ない。
+	require('lunr-languages/lunr.stemmer.support.js')(lunr);
+	require('lunr-languages/tinyseg.js')(lunr);
+	require('lunr-languages/lunr.ja.js')(lunr);	
 	
+	const idx = lunr( function () {
+		this.ref( 'title' );
+		this.field( 'title' );
+		/* -- Customisation ---
+		k1: This controls how quickly the boost given by a common word reaches saturation. 
+			Increasing it will slow down the rate of saturation and lower values result in quicker saturation. 
+			The default value is 1.2. If the collection of documents being indexed have high occurrences of words that are not covered by a stop word filter, 
+			these words can quickly dominate any similarity calculation. 
+			In these cases, this value can be reduced to get more balanced results.
+		b: 	This parameter controls the importance given to the length of a document and its fields. 
+			This value must be between 0 and 1, and by default it has a value of 0.75. 
+			Reducing this value reduces the effect of different length documents on a term’s importance to that document.
+		*/
+		//this.k1( 1.2 );
+		//this.b( 0.75 );
+
+		switch( lang ){
+			case 'ja':
+				manuals = require('./lib/manuals/manuals_ja').manuals;
+				this.use( lunr.ja );
+				break;
+			default:
+				manuals = require('./lib/manuals/manuals_en').manuals;
+				break;
+		}
+
+		// オブジェクトの配列の各オブジェクトに新たな要素を付け加える。
+		// ここでは、新たに “words” というキーを設定して、最初のキーに設定されているテキストのアンダースコア（ ‗ ）をスペース（ ）に変換している。
+		// ※ ただし、今回は、利用可能なキーが一つだけだからいいが、いくつもあると最後のキーの値に対して変換したものが word に入る。
+		/*
+		manuals.forEach( elm => {
+			Object.keys( elm ).forEach( key => {
+				elm.words = elm[key].replace( /_/g, ' ' );
+			})
+		});
+		*/
+
+		manuals.forEach( function ( doc ) {
+			this.add( doc );
+		}, this )
+	});
+
+
+	try {
+		fs.writeFileSync( lunrIndexFileName, JSON.stringify( idx ) );
+		console.log(`>>> ${lunrIndexFileName} is written <<<`);
+	}
+	catch( err ){ return err; }
+};
+
+searchManual = ( lang, searchTerms, cb ) => {
+	console.log(`=== searchManual ===`);
+
+	const lunrIndexFileName = `./server/lib/manuals/index/lunr_index_${lang}.json`;
+
+	// Check whether the index file is alredy existing or not, if yes, return, if no create the index.
+	if ( fs.existsSync( lunrIndexFileName ) ) { 
+		console.log(`--- ${lunrIndexFileName} is already existing ---`)
+	}
+	else {
+		const err = createLunrIndex( lang, lunrIndexFileName );
+		if ( err ) { console.error(`!!! Error at createLunrIndex procedure -> ${err} !!!`); return err }
+	}
+
+	fs.readFile( lunrIndexFileName, 'utf-8', (err, indexData ) => {
+		if ( err ){
+			console.error(`!!! Reading the file ${lunrIndexFileName} is failed !!!`);
+			throw err;
+		}
+		const idx = lunr.Index.load( JSON.parse( indexData ) );
+		
+		console.log(`>>> Search term is ${searchTerms} <<<`);
+
+		const searchResult = idx.search( searchTerms );
+		console.log(`>>> Search result: ${searchResult} <<<`);
+
+		cb( searchResult );
+	})
 };
 
 module.exports = {
 	createIncident: createIncident,
 	getAuthConfig: getAuthConfig,
-	deleteUploadedDirFiles: deleteUploadedDirFiles
+	deleteUploadedDirFiles: deleteUploadedDirFiles,
+	searchManual: searchManual
 };
 
 // Public Methods <<< End

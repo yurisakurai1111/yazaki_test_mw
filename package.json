@@ -25,6 +25,8 @@
     "grunt": "^1.1.0",
     "grunt-license-report": "0.0.8",
     "i18n": "^0.8.6",
+    "lunr": "^2.3.8",
+    "lunr-languages": "^1.4.0",
     "method-override": "^3.0.0",
     "mime-types": "^2.1.26",
     "moment": "^2.24.0",
@@ -37,6 +39,7 @@
     "rmdir": "^1.2.0",
     "sap-cf-mailer": "0.0.2",
     "sendmail": "^1.6.1",
+    "socks": "^2.3.3",
     "tesseract.js": "^2.0.2",
     "url": "^0.11.0"
   }
