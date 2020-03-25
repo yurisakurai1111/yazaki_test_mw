@@ -390,27 +390,38 @@ configRoutes = function( app, server )
 		reqHandlers.searchManual( convLang, request.body.conversation.memory.bizop_proc_searchPhrase, ( manuals ) => {
 			let replyElements = [];
 
-			for ( let i = 0; i < 5; i++ ){
-				
-				const replyElemObj = {
-					title: manuals[i].ref,
-					subtitle: 'TEST',
-					buttons:[]
-				}
-
-				replyElements.push( replyElemObj );
+			if ( manuals.length === 0 ){
+				recastMemory.noManualFound = true;
+				_replyWithMemory( response, 'text', 'No manual Found', recastMemory );
 			}
+			else {
+				recastMemory.noManualFound = false;
 
-			response.send({
-				replies: [
-				{
-					type: 'list',
-					content: {
-						elements: replyElements
-					},
-					markdown: true
-				}]
-			});
+				for ( let i = 0; i < 5; i++ ){
+				
+					const replyElemObj = {
+						title: manuals[i].ref,
+						subtitle: 'TEST',
+						buttons:[]
+					}
+	
+					replyElements.push( replyElemObj );
+				}
+	
+				_replyWithMemory( response, 'list', {elements: replyElements}, recastMemory );
+				/*
+				response.send({
+					replies: [
+					{
+						type: 'list',
+						content: {
+							elements: replyElements
+						},
+						markdown: true
+					}]
+				});
+				*/
+			}
 			
 		});
 
