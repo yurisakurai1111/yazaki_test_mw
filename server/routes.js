@@ -401,7 +401,7 @@ configRoutes = function( app, server )
 
 		const convLang = request.body.conversation.language;
 
-		reqHandlers.searchManual( convLang, request.body.conversation.memory.bizop_proc_searchPhrase, ( manuals ) => {
+		reqHandlers.searchManual( convLang, request.body.conversation.memory.manualSearchPhrase, ( manuals ) => {
 			let replyElements = [];
 
 			if ( manuals.length === 0 ){
