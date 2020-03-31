@@ -401,7 +401,7 @@ configRoutes = function( app, server )
 
 		const convLang = request.body.conversation.language;
 
-		reqHandlers.searchManual( convLang, request.body.conversation.memory.manualSearchPhrase, ( manuals ) => {
+		reqHandlers.searchManual( convLang, recastMemory.manualSearchPhrase, ( manuals ) => {
 			let replyElements = [];
 
 			if ( manuals.length === 0 ){
@@ -441,6 +441,76 @@ configRoutes = function( app, server )
 		});
 
 	})
+
+	app.post( '/search_test', ( request, response ) => {
+		console.log(`=== Temporary: Verification serach manuals ====`);
+
+		const 
+			lunr = require('lunr'),
+			lang = request.body.conversation.language
+			;
+		let manuals;
+
+		// lunr-languagesは分かち書き時に使われる。検索のみ行うときはこれらの require は必要ない。
+		require('lunr-languages/lunr.stemmer.support.js')(lunr);
+		require('lunr-languages/tinyseg.js')(lunr);
+		require('lunr-languages/lunr.ja.js')(lunr);	
+
+		let 
+			k1Value = ( request.body.conversation.k1_value ) || 1.2,
+			bValue = ( request.body.conversation.b_value ) || 0.75
+			;
+
+		console.log(`>>> k1 vlue: ${k1Value} <<<`);
+		console.log(`>>> b value: ${bValue} <<<`);
+
+		const idx = lunr( function () {
+			this.ref( 'title' );
+			this.field( 'keywords' );
+			/* -- Customisation ---
+			k1: This controls how quickly the boost given by a common word reaches saturation. 
+				Increasing it will slow down the rate of saturation and lower values result in quicker saturation. 
+				The default value is 1.2. If the collection of documents being indexed have high occurrences of words that are not covered by a stop word filter, 
+				these words can quickly dominate any similarity calculation. 
+				In these cases, this value can be reduced to get more balanced results.
+			b: 	This parameter controls the importance given to the length of a document and its fields. 
+				This value must be between 0 and 1, and by default it has a value of 0.75. 
+				Reducing this value reduces the effect of different length documents on a term’s importance to that document.
+			*/
+			this.k1( k1Value );
+			this.b( bValue );
+
+			switch( lang ){
+				case 'ja':
+					manuals = require('./lib/manuals/test/test_manuals_ja').manuals;
+					this.use( lunr.ja );
+					break;
+				default:
+					manuals = require('./lib/manuals/test/test_manuals_en').manuals;
+					break;
+			}
+
+			// オブジェクトの配列の各オブジェクトに新たな要素を付け加える。
+			// ここでは、新たに “words” というキーを設定して、最初のキーに設定されているテキストのアンダースコア（ ‗ ）をスペース（ ）に変換している。
+			// ※ ただし、今回は、利用可能なキーが一つだけだからいいが、いくつもあると最後のキーの値に対して変換したものが word に入る。
+			/*
+			manuals.forEach( elm => {
+				Object.keys( elm ).forEach( key => {
+					elm.words = elm[key].replace( /_/g, ' ' );
+				})
+			});
+			*/
+
+			manuals.forEach( function ( doc ) {
+				this.add( doc );
+			}, this )
+		});
+
+		console.log(`>>> Search term: ${recastMemory.manualSearchPhrase} <<<`)
+		const searchResult = idx.search( recastMemory.manualSearchPhrase );
+		console.log(`>>> Found result: ${searchResult.length} <<<`);
+		response.send( searchResult );
+	});
 
 	app.post('/errors', function( request, response ){
 		console.log( "=== Route: app.post: /errors ===" );

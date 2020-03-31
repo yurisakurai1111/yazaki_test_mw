@@ -18,7 +18,7 @@ const
 	settings = require( './lib/settings' ),
 	apis = require( './services/apis' ),
 	credentialInfo = require( './lib/credentials' ),
-	BASE_URL_INT = settings.BASE_URL_INT,
+	SOLMAN_URL = settings.SOLMAN_URL,
 	REDMINE_URL = settings.REDMINE_URL,
 	UPLOAD_FILE_DIR = "./UploadedFiles",
 	axios = require('axios'),
@@ -101,7 +101,9 @@ var
 	_getFileTokenByUpload,
 	_uploadFileToRedmine,
 	createLunrIndex,
-	searchManual
+	searchManual,
+	_sendMailViaSolman,
+	_postSendMailRequest
 	;
 
 //==========================
@@ -205,6 +207,114 @@ _uploadFileToRedmine = ( url, bodyData, options ) => {
 	});
 }
 
+_sendMailViaSolman = ( convId, issueContents ) => {
+	console.log(`=== Sub Procedure: _sendMailViaSolman ===`);
+
+	const _uploadedDir = UPLOAD_FILE_DIR + "/" + convId;
+	let _fileNames;
+
+	// It is necessary to make the keys uppoer case in order to read it in ABAP. 
+	let 
+		key,
+		keys = Object.keys( issueContents ),
+		n = keys.length,
+		issueKeyUpperCase = {}
+		;
+	
+	while ( n-- ){
+		key = keys[n];
+		issueKeyUpperCase[key.toUpperCase()] = issueContents[key];
+	}
+
+	return new Promise( async function ( resolve, reject ){
+		// Check whether relevant uploaded files are existing.
+		try {
+			_fileNames = fs.readdirSync( _uploadedDir );
+		}
+		catch( err ) {
+			console.warn(`??? No relevant uploaded files with convID ${convId} ???\ni.e. No files in the directory named ${_uploadedDir} or no directory itself.`);
+			err.noAttachFile = true;
+			reject( err );
+		}
+
+		// If attached file(s) are existing.
+		if ( _fileNames ){
+			try {
+				await _postSendMailRequest( _uploadedDir, _fileNames, issueKeyUpperCase );
+			}
+			catch( err ){
+				console.error( "!!! Failed to send/append files !!!", _fileNames );
+				//await deleteUploadedDirFiles( _uploadedDir ).catch( (err) => { console.error( "!!! [Can be ingored?] Error was happened at deleting file(s) (in _attachFilesProc) !!!", err ); });;
+				reject( err );
+			}
+
+			// Delete uploaded directory & files.
+			// It would be OK that the following delete procedure is exeucted asyncronously, because the result of directory/files deletion is not influence with subsequent procedures.
+			// However it was changed to await ~, because the same procedure is triggered after creation of incident for just in case.
+			// (this is because if the error was happened at creating an incident, attaching/sending/deleting files procedures would be skipped) 
+			// In this case, there is the possibility to tyring to delete twice, because the previous deleting process might be still running if it was executed asyncronously.
+			//await deleteUploadedDirFiles( _uploadedDir ).catch( (err) => { console.error( "!!! [Can be ingored?] Error was happened at deleting file(s) (in _attachFilesProc) !!!", err ); });
+			resolve();
+		};
+	});
+};
+
+_postSendMailRequest = ( dir, fileNames, issueObjKeyUpper ) => {
+	console.log( "=== Sub procedure '_postSendMailRequest' ===" );
+
+	const 
+		SOLMAN_SEND_MAIL_URL = SOLMAN_URL + '/iitsm/req_handler?mode=ATTACHFILE&guid=MAIL',
+		issueJson = JSON.stringify( issueObjKeyUpper )
+		;
+
+	let	_authConfig = require('./lib/share').authConfig || { headers: {} },
+		_fileNameWithPath,
+		_formData = new FormData(),
+		_contentType
+		;
+
+	console.log( `=== Sending uploaded relevant files in ${dir} ===` );
+
+	for ( let i = 0; i < fileNames.length; i++ ){
+		_fileNameWithPath =  dir + '/' + fileNames[i];
+		console.log(`>>> Uploading file ${i} >>> ${_fileNameWithPath}` );
+		_formData.append( 'attachment' + i, fs.createReadStream( _fileNameWithPath ));
+	}
+
+	_formData.append( 'document', issueJson );
+
+	// _formData.getHeaders()メソッドでHTTPヘッダを取得して、axiosに渡す必要がある点に注意が必要。
+	// HTTPヘッダの中身は、次のようなContent-Typeヘッダの情報になっている。この boundaryの識別子を、HTTPヘッダに含める必要があるということ。
+	// e.g. { content-type: "mulitpart/form-data; boundary=--------------------------140405031523404929223955}
+	_contentType = _formData.getHeaders();
+	
+	for( let id in _contentType ){
+		_authConfig.headers[id] = _contentType[id];
+	}
+
+	//console.log( ">>> _authConfig before axios.post: sending/attaching file >>>", _authConfig );
+
+	performance.mark('sendMailWithAttachmentStart');
+
+	return new Promise( function ( resolve, reject ){
+		// Using axios, because _formData.submit can not get the response.data returned by the server.
+		axios.post( SOLMAN_SEND_MAIL_URL, _formData, _authConfig )
+		.then( res => {
+			//console.log( ">>> Returned response from ABAP about sending/attaching file(s) >>>", res );
+			console.log( ">>> Posting the request to send the e-mail with attachments is successfully finished <<<");
+			performance.mark('sendMailWithAttachmentEnd');
+			performance.measure('Sending the mail', 'sendMailWithAttachmentStart', 'sendMailWithAttachmentEnd' );
+			resolve( res.data );
+		})
+		.catch( err => {
+			console.error( "!!! Error during posting the request to send the mail !!!", err );
+			reject( err );
+		});
+	});
+
+};
+
+/*
 _creIncidentLogging = ( logFile, logData, convId ) => {
 	console.log(`=== _creIncidentLogging: Process logging for the result of createIncident procedure ===` );
 	console.log(`>>> Log file name is ${logFile}, conversation ID is ${convId}, and the log data is >>>`, logData );
@@ -223,6 +333,8 @@ _creIncidentLogging = ( logFile, logData, convId ) => {
 	deleteUploadedDirFiles( uploadedDir )
 	.catch( (err) => { console.error( "!!! [Can be ingored?] Error was happened at deleting file(s) (in _creIncidentLogging) !!!", err ); });
 };
+*/
+
 
 _sendMail = ( mailContents ) => {
 	console.log(`=== Sub procedure: _sendMail ===`);
@@ -353,7 +465,7 @@ deleteUploadedDirFiles = function( dirPath ){
 
 createIncident = async ( res, incidentContents, convID, callback ) => {
 	const 
-		CREATE_INCIDENT_URL = REDMINE_URL + '/issues.json',
+		REDMINE_CREATE_TICKET_URL = REDMINE_URL + '/issues.json',
 		authConfig = require('./lib/share').authConfig
 		;
 
@@ -374,7 +486,7 @@ createIncident = async ( res, incidentContents, convID, callback ) => {
 
 	console.log( "=== Procedure: 'createIncident' ===" );
 	
-	axiosOptions.headers.Authorization = REDMINE_HEADER_BASICAUTH;
+	_sendMailViaSolman( convID, incidentContents.issue );
 
 	// >>>>> Mail Test Start >>>>>>>>>>>>>>
 	/*
@@ -434,6 +546,9 @@ createIncident = async ( res, incidentContents, convID, callback ) => {
 	// <<< Mail Test END <<<<<<<<<<<<
 	*/
 
+	/*
+	axiosOptions.headers.Authorization = REDMINE_HEADER_BASICAUTH;
+
 	// File Attachment processing block
 	uploadedFilesInfo = await _getFileTokenByUpload( convID )
 						.catch( ( err ) => { console.error(`!!! Catched Error when getting uploaded file(s) information with the message "${err.message}" !!!`); });
@@ -454,7 +569,7 @@ createIncident = async ( res, incidentContents, convID, callback ) => {
 
 	// Incident creation.
 	performance.mark('createIncidentStart');
-	axios.post( CREATE_INCIDENT_URL, incidentContents, axiosOptions )
+	axios.post( REDMINE_CREATE_TICKET_URL, incidentContents, axiosOptions )
 	.then( function( response ){
 		performance.mark('createIncidentEnd');
 		performance.measure( 'Incident Creation', 'createIncidentStart', 'createIncidentEnd' );
@@ -483,6 +598,7 @@ createIncident = async ( res, incidentContents, convID, callback ) => {
 		callback( res, replyMsg, replyUrl );
 		//_sendMail( mailContents );
 	});
+	*/
 };
 
 createLunrIndex = ( lang, lunrIndexFileName ) => {
