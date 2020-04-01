@@ -376,6 +376,8 @@ configRoutes = function( app, server )
 
 		console.log( `=== Route: app.post: ${PATH_CREATE_INCIDENT} ===` );
 
+		incidentContents.issue.reporter = recastMemory.user_name.raw.toUpperCase();
+
 		incidentContents.issue.subject = recastMemory.issueTitle || 'No title from CAI';
 		incidentContents.issue.description = `<Inquiry Type>\n${recastMemory.inquiry_type.raw}\n\n<Detail>\n${recastMemory.issueDetail}\n\n`;
 		if ( recastMemory.reasonForHigh ) incidentContents.issue.description += `<Reason for High priority>\n${recastMemory.reasonForHigh}\n\n`;

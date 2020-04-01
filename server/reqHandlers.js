@@ -42,6 +42,7 @@ const
 	REDMINE_HEADER_CONTENT_TYPE = 'application/json',
 	REDMINE_HEADER_BASICAUTH = `Basic ${REDMINE_TOKEN}`,
 	REDMINE_HEADER_OBJECT = { 'Content-Type': REDMINE_HEADER_CONTENT_TYPE, 'Authorization': REDMINE_HEADER_BASICAUTH },
+	ISSUE_JSON_FORM_FIELD_NAME = 'issue_info',
 	lunr = require('lunr'),
 	sendmail = require('sendmail')(),
 	SapCfMailer = require('sap-cf-mailer').default,
@@ -103,7 +104,8 @@ var
 	createLunrIndex,
 	searchManual,
 	_sendMailViaSolman,
-	_postSendMailRequest
+	_postSendMailRequest,
+	_logObjectValue
 	;
 
 //==========================
@@ -233,11 +235,13 @@ _sendMailViaSolman = ( convId, issueContents ) => {
 		}
 		catch( err ) {
 			console.warn(`??? No relevant uploaded files with convID ${convId} ???\ni.e. No files in the directory named ${_uploadedDir} or no directory itself.`);
-			err.noAttachFile = true;
-			reject( err );
+			// Even if there is not file to be attached, the procedure should be continued for this scenario.
+			//err.noAttachFile = true;
+			//reject( err );
 		}
 
 		// If attached file(s) are existing.
+		/*
 		if ( _fileNames ){
 			try {
 				await _postSendMailRequest( _uploadedDir, _fileNames, issueKeyUpperCase );
@@ -256,6 +260,16 @@ _sendMailViaSolman = ( convId, issueContents ) => {
 			//await deleteUploadedDirFiles( _uploadedDir ).catch( (err) => { console.error( "!!! [Can be ingored?] Error was happened at deleting file(s) (in _attachFilesProc) !!!", err ); });
 			resolve();
 		};
+		*/
+		try {
+			await _postSendMailRequest( _uploadedDir, _fileNames, issueKeyUpperCase );
+		}
+		catch( err ){
+			console.error( "!!! Failed to send/append mail in Solman !!!", _fileNames );
+			//await deleteUploadedDirFiles( _uploadedDir ).catch( (err) => { console.error( "!!! [Can be ingored?] Error was happened at deleting file(s) (in _attachFilesProc) !!!", err ); });;
+			reject( err );
+		}
+		resolve();
 	});
 };
 
@@ -273,15 +287,16 @@ _postSendMailRequest = ( dir, fileNames, issueObjKeyUpper ) => {
 		_contentType
 		;
 
-	console.log( `=== Sending uploaded relevant files in ${dir} ===` );
-
-	for ( let i = 0; i < fileNames.length; i++ ){
-		_fileNameWithPath =  dir + '/' + fileNames[i];
-		console.log(`>>> Uploading file ${i} >>> ${_fileNameWithPath}` );
-		_formData.append( 'attachment' + i, fs.createReadStream( _fileNameWithPath ));
+	if ( fileNames ){
+		console.log( `=== File(s) should be attached exists in ${dir} ===` );
+		for ( let i = 0; i < fileNames.length; i++ ){
+			_fileNameWithPath =  dir + '/' + fileNames[i];
+			console.log(`>>> Uploading file ${i} >>> ${_fileNameWithPath}` );
+			_formData.append( 'attachment' + i, fs.createReadStream( _fileNameWithPath ));
+		}
 	}
 
-	_formData.append( 'document', issueJson );
+	_formData.append( ISSUE_JSON_FORM_FIELD_NAME, issueJson );
 
 	// _formData.getHeaders()メソッドでHTTPヘッダを取得して、axiosに渡す必要がある点に注意が必要。
 	// HTTPヘッダの中身は、次のようなContent-Typeヘッダの情報になっている。この boundaryの識別子を、HTTPヘッダに含める必要があるということ。
@@ -335,6 +350,12 @@ _creIncidentLogging = ( logFile, logData, convId ) => {
 };
 */
 
+_logObjectValue = ( obj ) => {
+	Object.keys( obj ).forEach( key => {
+		console.log(`>>> Object Key: ${key}, Value: ${obj[key]} <<<`);
+		if ( typeof obj[key] === 'object' ){ _logObjectValue( obj[key] ); }
+	});
+}
 
 _sendMail = ( mailContents ) => {
 	console.log(`=== Sub procedure: _sendMail ===`);
@@ -485,68 +506,14 @@ createIncident = async ( res, incidentContents, convID, callback ) => {
 		;
 
 	console.log( "=== Procedure: 'createIncident' ===" );
-	
-	_sendMailViaSolman( convID, incidentContents.issue );
 
-	// >>>>> Mail Test Start >>>>>>>>>>>>>>
-	/*
-	if ( process.env.VCAP_SERVICES ){
-		vcapServices = JSON.parse( process.env.VCAP_SERVICES );
-		vcapClientID = vcapServices.connectivity[0].credentials.clientid;
-		vcapClientSecret = vcapServices.connectivity[0].credentials.clientsecret;
-		vcapProxyPortSocks5 = vcapServices.connectivity[0].credentials.onpremise_socks5_proxy_port;
-	}
+	// Sending the e-mail via Solution Manager with attachment(s) if it exists.
+	// Does not wait for this result.
+	await _sendMailViaSolman( convID, incidentContents.issue ).catch( ( err ) => { console.error(`!!! Catched Error when sending e-mail with attachments > "${err.message}" !!!`) });
 
-	if ( authConfig && vcapProxyPortSocks5 ){
-		const proxyType = 'SOCKS5';
-		let
-			proxyHost = authConfig.proxy.host,
-			proxyPort = ( proxyType === 'HTTP' ) ? authConfig.proxy.port: vcapProxyPortSocks5,
-			proxyProtocol = ( proxyType === 'HTTP' ) ? 'http:' : 'socks5:',
-			proxyAuth = `${vcapClientID}:${vcapClientSecret}`,
-			proxyAuthObj = {
-				type: 'OAuth2',
-				user: credentialInfo.SCP.mailAddr,
-				accessToken: authConfig.headers['Proxy-Authorization'].substr( 7 )
-			},
-			proxyObject = {
-				host: proxyHost,
-				port: proxyPort,
-				protocol: proxyProtocol,
-				auth: proxyAuthObj
-			},
-			proxyHostPortSocks5 = `socks5://${proxyAuth}@${proxyHost}:${proxyPort}`
-		;
-
-		smtp = nodemailer.createTransport({
-			host: SMTP_SERVER, 
-			port: SMTP_SERVER_PORT,
-			secure: false,
-			tls: {rejectUnauthorized: false},
-			proxy: proxyObject
-		});
-
-		smtp.set('proxy_socks_module', require('socks'));
-	}
-	else {
-		smtp = nodemailer.createTransport({
-			host: SMTP_SERVER, 
-			port: SMTP_SERVER_PORT,
-			secure: false,
-			tls: {rejectUnauthorized: false}
-		});
-	}
-	
-	replyMsg = 'Sending the mail only.';
-	mailContents.subject = ( authConfig ) ? 'Test Mail from SCP' : 'Test Mail from Local';
-	mailContents.text = ( authConfig ) ? 'This mail was sent from Node App on SCP' : 'This mail was sent from Node App on Local PC';
-	callback( res, replyMsg );
-	_sendMail( mailContents );
-	
-	// <<< Mail Test END <<<<<<<<<<<<
-	*/
-
-	/*
+	//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+	// START: Redmine ticket creation
+	//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	axiosOptions.headers.Authorization = REDMINE_HEADER_BASICAUTH;
 
 	// File Attachment processing block
@@ -555,17 +522,15 @@ createIncident = async ( res, incidentContents, convID, callback ) => {
 	
 	if ( uploadedFilesInfo ) incidentContents.issue.uploads = uploadedFilesInfo;
 
+	// Because sending mail with attachment uses 'content-type: multipart/form-data ~', it is necessary to delete it. 
+	// This value is case sensitive so it is not valid by just replacing the value 'Content-Type' below.
+	if ( axiosOptions.headers['content-type'] ){ delete axiosOptions.headers['content-type'] };
+
 	// Because the following value was changed in the sub procedure, it is necessary to set it here, just before axios.post.
 	axiosOptions.headers['Content-Type'] = REDMINE_HEADER_CONTENT_TYPE;
 
 	console.log(`>>> axios options length: ${Object.keys(axiosOptions).length} <<<`);
-	console.log(`>>> axios options, headers.content-type: ${axiosOptions.headers['Content-Type']} <<<`);
-	console.log(`>>> axios options, headers.authorization: ${axiosOptions.headers.Authorization} <<<`);
-	if (axiosOptions.proxy ) {
-		console.log(`>>> axios options, proxy.host: ${axiosOptions.proxy.host} <<<`);
-		console.log(`>>> axios options, proxy.port: ${axiosOptions.proxy.port} <<<`);
-		console.log(`>>> axios options, headers.proxy-auth: ${axiosOptions.headers['Proxy-Authorization']} <<<`);
-	}
+	_logObjectValue( axiosOptions );
 
 	// Incident creation.
 	performance.mark('createIncidentStart');
@@ -588,17 +553,18 @@ createIncident = async ( res, incidentContents, convID, callback ) => {
 		}
 
 		callback( res, replyMsg, replyUrl );
-		//_sendMail( mailContents );
 
 	})
 	.catch( function ( error ){
 		console.error( "!!! axios.post in createIncident is failed (catched error) !!!", error.message );
+		console.error( `!!! All error objects: ${error} !!!`);
 		replyMsg = res.__('createIncident.msgFailed');
 
 		callback( res, replyMsg, replyUrl );
-		//_sendMail( mailContents );
 	});
-	*/
+	//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+	// END: Redmine ticket creation
+	//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 };
 
 createLunrIndex = ( lang, lunrIndexFileName ) => {
