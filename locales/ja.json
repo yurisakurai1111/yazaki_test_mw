@@ -12,13 +12,17 @@
 		"autoSolvedIncidentRemarkPrologue": "<<このインシデントは SAP Conversational AI にてすでに解決済みです>>\n\n",
 		"autoSolvedIncidentRemarkEpilogue": "\n\n(このインシデントは、どのくらいの問題が自動的に解決されたかの統計を確認するために作成されています。)",
 		"msgNoAutoSolvedIncidentCreate": "現在の設定では、自動的に解決したインシデントの作成をしないようになっています。",
-		"msgCreateIncidentInProcess": "インシデントを作成しています…"
+		"msgCreateIncidentInProcess": "インシデントを作成しています…",
+		"msgNoInfoFromCAI": "<CAI から情報を取得していません>",
+		"msgNoInforFromSolman": "<Solution Manager から情報を取得できませんでした>"
 	},
 	"createIncident": {
 		"msgSuccess": "Redmine のチケットを作成しました。タイトル: {{subject}}。",
 		"msgFailed": "チケットの作成に失敗しました。\n\n",
 		"mailSubject": "Redmine のチケットを作成しました, イシュー ID: {{issueID}}。",
-		"mailText": "作成されたチケットのタイトルは、“{{title}}” です。\nチケットへのリンクは、こちらになります。\n"
+		"mailText": "作成されたチケットのタイトルは、“{{title}}” です。\nチケットへのリンクは、こちらになります。\n",
+		"incidentBodyPrologue": "Dear Service Desk,\n\nThis is {{userName}} from {{userDepartment}}.\nPlease take care of the following inquiry.\n\n*****************\n- Division of inquirer: {{userName}}\n- Inquirer: {{userDepartment}}\n",
+		"incidentBody": "- Inquiry type: {{inquiryType}}\n- Priority: {{priority}}\n- Preferred completion date of measure: {{dueDate}}\n\n- Details of question\n{{issueDetail}}\n\n- Target function\n{{targetFunc}}\n\n- Execution user ID & Target data\n{{execUserEtc}}\n\n- Background and purpose of the inquiry\n{{background}}\n\n- Reason for urgency\n{{reasonForHigh}}\n\nBest regards."
 	},
 	"attachFiles": {
 		"msgAttachFailed": "添付すべきファイルは存在していますが、ファイルを転送および添付するプロシージャ(_attachFilesProc) でエラーが発生し、ABAP システム側にファイルを転送および添付できませんでした。\nエラーの詳細は下記です。\n"

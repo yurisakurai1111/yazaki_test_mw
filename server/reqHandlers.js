@@ -105,7 +105,8 @@ var
 	searchManual,
 	_sendMailViaSolman,
 	_postSendMailRequest,
-	_logObjectValue
+	_logObjectValue,
+	_createIncidentBody
 	;
 
 //==========================
@@ -262,14 +263,15 @@ _sendMailViaSolman = ( convId, issueContents ) => {
 		};
 		*/
 		try {
-			await _postSendMailRequest( _uploadedDir, _fileNames, issueKeyUpperCase );
+			const resData = await _postSendMailRequest( _uploadedDir, _fileNames, issueKeyUpperCase );
+			resolve( resData[0].MESSAGE_V3 );
 		}
 		catch( err ){
 			console.error( "!!! Failed to send/append mail in Solman !!!", _fileNames );
 			//await deleteUploadedDirFiles( _uploadedDir ).catch( (err) => { console.error( "!!! [Can be ingored?] Error was happened at deleting file(s) (in _attachFilesProc) !!!", err ); });;
 			reject( err );
 		}
-		resolve();
+		
 	});
 };
 
@@ -355,7 +357,47 @@ _logObjectValue = ( obj ) => {
 		console.log(`>>> Object Key: ${key}, Value: ${obj[key]} <<<`);
 		if ( typeof obj[key] === 'object' ){ _logObjectValue( obj[key] ); }
 	});
-}
+};
+
+_createIncidentBody = ( res, recastMemory, incidentContents ) => {
+	const
+		errorFunc = recastMemory.bizErrFunc || res.__( 'general.msgNoInfoFromCAI' ),
+		execUserEtcInfo = recastMemory.bizErrUserInfoEtc || res.__( 'general.msgNoInfoFromCAI' ),
+		errorBackground = recastMemory.bizErrBackground ||  res.__( 'general.msgNoInfoFromCAI' )
+		;
+
+	// This value is not relevant for Redmine, and only necessary for mail creation in Solman.
+	// Even though irrelevant key is defined for redmine, it is OK to create the redmine ticket.
+	incidentContents.issue.reporter = recastMemory.user_name.raw.toUpperCase();
+
+	incidentContents.issue.subject = recastMemory.issueTitle || res.__( 'general.msgNoInfoFromCAI' );
+	incidentContents.issue.tracker_id = recastMemory.redmineTrackerId || 1;
+	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	// !!! Should be changed to determine the due date without calculating holidays !!!
+	incidentContents.issue.due_date = ( recastMemory.arbitraryDueDate) ? recastMemory.arbitraryDueDate.raw : moment().add( recastMemory.defaultDueDate, 'days').format('YYYY-MM-DD');
+	
+	switch ( recastMemory.ticket_priority.value ){
+		case 'high':
+			incidentContents.issue.priority_id = 3;
+			break;
+		case 'medium':
+			incidentContents.issue.priority_id = 2;
+			break;
+		case 'low':
+			incidentContents.issue.priority_id = 1;
+			break;
+	}
+
+	incidentContents.issue.description = res.__( 'createIncident.incidentBody', { inquiryType: recastMemory.inquiry_type.raw,
+												  								  priority: recastMemory.ticket_priority.raw,
+																				  dueDate: incidentContents.issue.due_date,
+																				  issueDetail: recastMemory.issueDetail,
+																				  targetFunc: errorFunc,
+																				  execUserEtc: execUserEtcInfo,
+																				  background: errorBackground,
+																				  reasonForHigh: recastMemory.reasonForHigh });
+	return ( incidentContents );
+};
 
 _sendMail = ( mailContents ) => {
 	console.log(`=== Sub procedure: _sendMail ===`);
@@ -484,7 +526,7 @@ deleteUploadedDirFiles = function( dirPath ){
 	});
 };
 
-createIncident = async ( res, incidentContents, convID, callback ) => {
+createIncident = async ( res, recastMemory, incidentContents, convID, callback ) => {
 	const 
 		REDMINE_CREATE_TICKET_URL = REDMINE_URL + '/issues.json',
 		authConfig = require('./lib/share').authConfig
@@ -502,18 +544,31 @@ createIncident = async ( res, incidentContents, convID, callback ) => {
 		},
 		axiosOptions = authConfig || { headers: {} },
 		uploadedFilesInfo,
+		reporterDepartment,
 		vcapProxyPortSocks5
 		;
 
 	console.log( "=== Procedure: 'createIncident' ===" );
 
-	// Sending the e-mail via Solution Manager with attachment(s) if it exists.
-	// Does not wait for this result.
-	await _sendMailViaSolman( convID, incidentContents.issue ).catch( ( err ) => { console.error(`!!! Catched Error when sending e-mail with attachments > "${err.message}" !!!`) });
+	_createIncidentBody( res, recastMemory, incidentContents );
+
+	// Sending the e-mail via Solution Manager with attachment(s) if it exists,
+	// and get the department name of user.
+	reporterDepartment = await _sendMailViaSolman( convID, incidentContents.issue ).catch( ( err ) => { console.error(`!!! Catched Error when sending e-mail with attachments > "${err.message}" !!!`) });
+
+	// Now I got the department information of user, so I can input it now.
+	const userDepartment = reporterDepartment || res.__( 'general.msgNoInforFromSolman' );
+	incidentContents.issue.description = res.__( 'createIncident.incidentBodyPrologue', { userName: incidentContents.issue.reporter, userDepartment: userDepartment } )
+	                                     + incidentContents.issue.description;
 
 	//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	// START: Redmine ticket creation
 	//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+	
+	// Because sending mail with attachment uses 'content-type: multipart/form-data ~', it is necessary to delete it. 
+	// This value is case sensitive so it is not valid by just replacing the value 'Content-Type' below.
+	if ( axiosOptions.headers['content-type'] ){ delete axiosOptions.headers['content-type'] };
+	
 	axiosOptions.headers.Authorization = REDMINE_HEADER_BASICAUTH;
 
 	// File Attachment processing block
@@ -521,10 +576,6 @@ createIncident = async ( res, incidentContents, convID, callback ) => {
 						.catch( ( err ) => { console.error(`!!! Catched Error when getting uploaded file(s) information with the message "${err.message}" !!!`); });
 	
 	if ( uploadedFilesInfo ) incidentContents.issue.uploads = uploadedFilesInfo;
-
-	// Because sending mail with attachment uses 'content-type: multipart/form-data ~', it is necessary to delete it. 
-	// This value is case sensitive so it is not valid by just replacing the value 'Content-Type' below.
-	if ( axiosOptions.headers['content-type'] ){ delete axiosOptions.headers['content-type'] };
 
 	// Because the following value was changed in the sub procedure, it is necessary to set it here, just before axios.post.
 	axiosOptions.headers['Content-Type'] = REDMINE_HEADER_CONTENT_TYPE;

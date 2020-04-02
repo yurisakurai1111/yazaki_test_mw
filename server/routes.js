@@ -376,25 +376,7 @@ configRoutes = function( app, server )
 
 		console.log( `=== Route: app.post: ${PATH_CREATE_INCIDENT} ===` );
 
-		incidentContents.issue.reporter = recastMemory.user_name.raw.toUpperCase();
-
-		incidentContents.issue.subject = recastMemory.issueTitle || 'No title from CAI';
-		incidentContents.issue.description = `<Inquiry Type>\n${recastMemory.inquiry_type.raw}\n\n<Detail>\n${recastMemory.issueDetail}\n\n`;
-		if ( recastMemory.reasonForHigh ) incidentContents.issue.description += `<Reason for High priority>\n${recastMemory.reasonForHigh}\n\n`;
-		incidentContents.issue.due_date = ( recastMemory.arbitraryDueDate) ? recastMemory.arbitraryDueDate.raw : moment().add( recastMemory.defaultDueDate, 'days').format('YYYY-MM-DD');
-		switch ( recastMemory.ticket_priority.value ){
-			case 'high':
-				incidentContents.issue.priority_id = 3;
-				break;
-			case 'medium':
-				incidentContents.issue.priority_id = 2;
-				break;
-			case 'low':
-				incidentContents.issue.priority_id = 1;
-				break;
-		}
-
-		reqHandlers.createIncident( response, incidentContents, recastConvId, _replyToCAI );
+		reqHandlers.createIncident( response, recastMemory, incidentContents, recastConvId, _replyToCAI );
 
 	});
 

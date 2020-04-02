@@ -12,13 +12,17 @@
 		"autoSolvedIncidentRemarkPrologue": "<<This incident is already solved by SAP Conversatinal AI>>\n\n",
 		"autoSolvedIncidentRemarkEpilogue": "\n\n(This incident was created for the statistic to check how many incidents were solved automatically)",
 		"msgNoAutoSolvedIncidentCreate": "Automatically solved incident is not created in the current setting.",
-		"msgCreateIncidentInProcess": "Incident creation is in process..."
+		"msgCreateIncidentInProcess": "Incident creation is in process...",
+		"msgNoInfoFromCAI": "<No information came from CAI>",
+		"msgNoInforFromSolman": "<No information came from Solman>"
 	},
 	"createIncident": {
 		"msgSuccess": "Redmine Ticket is created with the subject {{subject}}.",
 		"msgFailed": "Redmine ticket creation was failed.\n\n",
 		"mailSubject": "Redmine ticket was created, issue ID: {{issueID}}.",
-		"mailText": "Created ticket's title is {{title}}.\nHere is link to the ticket.\n"
+		"mailText": "Created ticket's title is {{title}}.\nHere is link to the ticket.\n",
+		"incidentBodyPrologue": "Dear Service Desk,\n\nThis is {{userName}} from {{userDepartment}}.\nPlease take care of the following inquiry.\n\n*****************\n- Division of inquirer: {{userName}}\n- Inquirer: {{userDepartment}}\n",
+		"incidentBody": "- Inquiry type: {{inquiryType}}\n- Priority: {{priority}}\n- Preferred completion date of measure: {{dueDate}}\n\n- Details of question\n{{issueDetail}}\n\n- Target function\n{{targetFunc}}\n\n- Execution user ID & Target data\n{{execUserEtc}}\n\n- Background and purpose of the inquiry\n{{background}}\n\n- Reason for urgency\n{{reasonForHigh}}\n\nBest regards."
 	},
 	"attachFiles": {
 		"msgAttachFailed": "Even though the file(s) should be attached are existing, the error was happened while sending/attaching(_attachFilesProc) files to ABAP side.\nThe reason is as follow.\n"
