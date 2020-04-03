@@ -440,6 +440,7 @@ configRoutes = function( app, server )
 		}
 		else {
 			const lang = request.body.language;
+			const generateKeywords = request.body.generateKeywords || false;
 			const lunrIndexFileName = `./server/lib/manuals/index/lunr_index_${lang}.json`;
 			const requiredManualFile = `./lib/manuals/manuals_${lang}`;
 			const manualsFile = `./server/lib/manuals/manuals_${lang}.js`;
@@ -452,7 +453,7 @@ configRoutes = function( app, server )
 
 				let manuals = require( requiredManualFile ).manuals;
 
-				if ( lang === 'ja' ){
+				if ( generateKeywords && lang === 'ja' ){
 					for ( let manual of manuals ){
 						// This updates the file (object) contents, even though the contents of file is not really updated.
 						manual['keywords'] = await apis.translateText( manual['title'], 'ja', 'en' );

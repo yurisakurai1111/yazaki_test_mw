@@ -578,7 +578,7 @@ createLunrIndex = ( lang, lunrIndexFileName ) => {
 		switch( lang ){
 			case 'ja':
 				manuals = require('./lib/manuals/manuals_ja').manuals;
-				this.use( lunr.ja );
+				//this.use( lunr.ja );
 				break;
 			default:
 				manuals = require('./lib/manuals/manuals_en').manuals;
