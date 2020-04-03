@@ -15,6 +15,7 @@ white : true
 // Module Scope Variant >>> Start
 const
 	settings = require( './lib/settings' ),
+	apis = require( './services/apis' ),
 	// PROCMODE = "TEST" means that this program DOES NOT set authorization configuration for cloud foundry.
 	//PROCMODE = "TEST"
 	PROCMODE = ( process.env.VCAP_SERVICES ) ? "PROD" : "TEST",
@@ -380,12 +381,17 @@ configRoutes = function( app, server )
 
 	});
 
-	app.post( PATH_SEARCH_MANUAL, passport.authenticate('basic', { session: false }), (request, response) => {
+	app.post( PATH_SEARCH_MANUAL, passport.authenticate('basic', { session: false }), async (request, response) => {
 		console.log( `=== Route: ${request.path} ===` );
 
 		const convLang = request.body.conversation.language;
+		let serachTerms = recastMemory.manualSearchPhrase;
 
-		reqHandlers.searchManual( convLang, recastMemory.manualSearchPhrase, ( manuals ) => {
+		if ( convLang === 'ja' ){
+			serachTerms = await apis.translateText( serachTerms, 'ja', 'en' );
+		}
+
+		reqHandlers.searchManual( convLang, serachTerms, ( manuals ) => {
 			let replyElements = [];
 
 			if ( manuals.length === 0 ){
@@ -426,8 +432,53 @@ configRoutes = function( app, server )
 
 	})
 
+	app.post( '/create_lunr_index', async ( request, response ) => {
+		console.log( `=== Route: ${request.path} ===` );
+
+		if ( !request.body.language ){ 
+			response.status(400).send('!!! No language information, specify the language id (e.g. "ja" ) in the body !!!'); 
+		}
+		else {
+			const lang = request.body.language;
+			const lunrIndexFileName = `./server/lib/manuals/index/lunr_index_${lang}.json`;
+			const requiredManualFile = `./lib/manuals/manuals_${lang}`;
+			const manualsFile = `./server/lib/manuals/manuals_${lang}.js`;
+
+			if ( !fs.existsSync( `${manualsFile}` ) ){
+				response.status(500).send(`!!! Cannot find the file ${manualsFile} !!!`);
+				console.error( `!!! Cannot find the file ${manualsFile} !!!` );
+			}
+			else {
+
+				let manuals = require( requiredManualFile ).manuals;
+
+				if ( lang === 'ja' ){
+					for ( let manual of manuals ){
+						// This updates the file (object) contents, even though the contents of file is not really updated.
+						manual['keywords'] = await apis.translateText( manual['title'], 'ja', 'en' );
+					}
+				}
+
+				if ( fs.existsSync( lunrIndexFileName ) ){
+					try {
+						fs.unlinkSync( lunrIndexFileName );
+						console.log(`>>> ${lunrIndexFileName} was already existing and deleted before newly created <<<`);
+					}
+					catch( err ){
+						console.error( `!!! Error: Cannot delete the file ${lunrIndexFileName}.!!!` );
+						response.status(500).send(`!!! Error when deleting the file ${lunrIndexFileName} !!!`);
+					}
+				}
+
+				reqHandlers.createLunrIndex( lang, lunrIndexFileName );
+				response.send(`${lunrIndexFileName} is created.`);
+			}
+		}
+		
+	})
+
 	app.post( '/search_test', ( request, response ) => {
-		console.log(`=== Temporary: Verification serach manuals ====`);
+		console.log( `=== Route: ${request.path} ===` );
 
 		const 
 			lunr = require('lunr'),

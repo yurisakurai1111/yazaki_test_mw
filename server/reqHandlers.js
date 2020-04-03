@@ -41,64 +41,17 @@ const
 	REDMINE_TOKEN = Buffer.from(`${REDMINE_USER}:${REDMINE_PASSWORD}`, 'utf8').toString('base64'),
 	REDMINE_HEADER_CONTENT_TYPE = 'application/json',
 	REDMINE_HEADER_BASICAUTH = `Basic ${REDMINE_TOKEN}`,
-	REDMINE_HEADER_OBJECT = { 'Content-Type': REDMINE_HEADER_CONTENT_TYPE, 'Authorization': REDMINE_HEADER_BASICAUTH },
 	ISSUE_JSON_FORM_FIELD_NAME = 'issue_info',
-	lunr = require('lunr'),
-	sendmail = require('sendmail')(),
-	SapCfMailer = require('sap-cf-mailer').default,
-	//SMTP_SERVER = 'mailsin.sap.corp',
-	SMTP_SERVER = '10.33.52.41',
-	SMTP_SERVER_PORT = 25,
-	MAIL_FROM_ADDRESS = credentialInfo.MAIL_INFO.FROM_ADDRESS,
-	MAIL_FROM_ADDRESS_PASS = credentialInfo.MAIL_INFO.FROM_ADDRESS_PASS,
-	MAIL_TO_ADDRESS = credentialInfo.MAIL_INFO.FROM_ADDRESS,
-	MAIL_CC_ADDRESS = credentialInfo.MAIL_INFO.TO_ADDRESS,
-	nodemailer = require('nodemailer')
-	/*
-	smtp = nodemailer.createTransport({
-		host: SMTP_SERVER, 
-		port: SMTP_SERVER_PORT,
-		secure: false,
-    	tls: {rejectUnauthorized: false}
-		/*
-		auth: {
-			user: MAIL_FROM_ADDRESS,
-			pass: MAIL_FROM_ADDRESS_PASS
-		}
-		
-	})
-	*/
+	lunr = require('lunr')
 	;
 
 var
-	baseUrl,
-	generalGetMethod,
 	createIncident,
-	incidentTemplateURL,
-	sysMonAlertURL,
 	getAuthConfig,
 	vcapServices,
 	scpParams = {},
 	accTokenURL,
-	// Following vcap* variables can be taken from the SCP variable dynamically, when this program is running on SCP.
-	// So following codes are not really necessary, if this program is running on SCP.
-	vcapClientID = credentialInfo.thisApp.clientId,
-	vcapClientSecret = credentialInfo.thisApp.clientSecret,
-	vcapProxyHost = "10.0.85.1",
-	vcapProxyPort = 20003,
-	vcapXsuaaURL = "https://p2000594029trial.authentication.eu10.hana.ondemand.com",
-	fileContents,
 	deleteUploadedDirFiles,
-	readPrevProcLog,
-	_getTextForPriority,
-	_adjustTranslatedTexts,
-	_attachFilesProc,
-	_sendUploadedFiles,
-	_creIncidentLogging,
-	ocrRequest,
-	chatHistoryHandler,
-	smtp,
-	_sendMail,
 	_getFileTokenByUpload,
 	_uploadFileToRedmine,
 	createLunrIndex,
@@ -136,7 +89,6 @@ _getFileTokenByUpload = ( convID ) => {
 		_fileNameWithPath,
 		_fileData,
 		uploadedFiles = [],
-		uploadedFilesInfo,
 		axiosOptions = authConfig || { headers: {} }
 		;
 
@@ -399,38 +351,6 @@ _createIncidentBody = ( res, recastMemory, incidentContents ) => {
 	return ( incidentContents );
 };
 
-_sendMail = ( mailContents ) => {
-	console.log(`=== Sub procedure: _sendMail ===`);
-	console.dir(mailContents);
-	
-	try {
-		smtp.sendMail( mailContents, (error, info) => {
-			// Error
-			if ( error ){
-				console.error(`!!! Sending e-mail was failed by ${error} !!!`);
-				return;
-			}
-			// Success
-			console.log(`=== Sending email was successfully finsihed ===`);
-		});
-	}
-	catch( e ){
-		console.error(`!!! Error was catched during sending the e-mail by ${e} !!!`);
-	}
-	
-	/*
-	sendmail( mailContents, ( err, reply ) => {
-		console.log( err && err.stack );
-		console.dir( reply );
-	} );
-	*/
-	/*
-	const transporter = new SapCfMailer('MAILTRAP');
-	transporter.sendMail( mailContents );
-	*/
-};
-
-
 // Utility Method <<< End
 //===================================
 
@@ -448,20 +368,23 @@ getAuthConfig = function ( callback ){
 		console.error("Cannot get the environment variable 'process.env.VCAP_SERVICES'.");
 		return( "Cannot get environment variable 'process.env.VCAP_SERVICES'.\nIs this really running SCP environment?\nIt must be runnning on the local environment." );
 	}
-	vcapClientID = vcapServices.connectivity[0].credentials.clientid;
-	vcapClientSecret = vcapServices.connectivity[0].credentials.clientsecret;
-	vcapProxyHost = vcapServices.connectivity[0].credentials.onpremise_proxy_host;
-	vcapProxyPort = vcapServices.connectivity[0].credentials.onpremise_proxy_port;
-	vcapXsuaaURL = vcapServices.connectivity[0].credentials.url;
-	scpParams = {
-		username: credentialInfo.SCP.mailAddr,
-		password: credentialInfo.SCP.password,
-		grant_type: 'password',
-		response_type: 'token',
-		client_id: vcapClientID,
-		client_secret: vcapClientSecret
-	};
-	accTokenURL = vcapXsuaaURL + '/oauth/token';
+
+	const
+		vcapClientID = vcapServices.connectivity[0].credentials.clientid,
+		vcapClientSecret = vcapServices.connectivity[0].credentials.clientsecret,
+		vcapProxyHost = vcapServices.connectivity[0].credentials.onpremise_proxy_host,
+		vcapProxyPort = vcapServices.connectivity[0].credentials.onpremise_proxy_port,
+		vcapXsuaaURL = vcapServices.connectivity[0].credentials.url;
+		scpParams = {
+			username: credentialInfo.SCP.mailAddr,
+			password: credentialInfo.SCP.password,
+			grant_type: 'password',
+			response_type: 'token',
+			client_id: vcapClientID,
+			client_secret: vcapClientSecret
+		},
+		accTokenURL = vcapXsuaaURL + '/oauth/token'
+		;
 
 	axios.post( accTokenURL, queryString.stringify( scpParams ), { headers: { 'Accept': 'application/json;charset=utf8', 'Content-Type': 'application/x-www-form-urlencoded' } } )
 	.then( function ( response ){
@@ -627,10 +550,17 @@ createLunrIndex = ( lang, lunrIndexFileName ) => {
 	require('lunr-languages/lunr.stemmer.support.js')(lunr);
 	require('lunr-languages/tinyseg.js')(lunr);
 	require('lunr-languages/lunr.ja.js')(lunr);	
-	
-	const idx = lunr( function () {
-		this.ref( 'title' );
-		this.field( 'title' );
+
+	const idx = lunr( async function(){
+
+		const 
+			refKeyName = 'title',
+			searchKeyName = 'keywords'
+			;
+
+		this.ref( refKeyName );
+		this.field( refKeyName );
+		this.field( searchKeyName );
 		/* -- Customisation ---
 		k1: This controls how quickly the boost given by a common word reaches saturation. 
 			Increasing it will slow down the rate of saturation and lower values result in quicker saturation. 
@@ -644,6 +574,7 @@ createLunrIndex = ( lang, lunrIndexFileName ) => {
 		//this.k1( 1.2 );
 		//this.b( 0.75 );
 
+		
 		switch( lang ){
 			case 'ja':
 				manuals = require('./lib/manuals/manuals_ja').manuals;
@@ -653,17 +584,6 @@ createLunrIndex = ( lang, lunrIndexFileName ) => {
 				manuals = require('./lib/manuals/manuals_en').manuals;
 				break;
 		}
-
-		// オブジェクトの配列の各オブジェクトに新たな要素を付け加える。
-		// ここでは、新たに “words” というキーを設定して、最初のキーに設定されているテキストのアンダースコア（ ‗ ）をスペース（ ）に変換している。
-		// ※ ただし、今回は、利用可能なキーが一つだけだからいいが、いくつもあると最後のキーの値に対して変換したものが word に入る。
-		/*
-		manuals.forEach( elm => {
-			Object.keys( elm ).forEach( key => {
-				elm.words = elm[key].replace( /_/g, ' ' );
-			})
-		});
-		*/
 
 		manuals.forEach( function ( doc ) {
 			this.add( doc );
@@ -706,13 +626,15 @@ searchManual = ( lang, searchTerms, cb ) => {
 
 		cb( searchResult );
 	})
+	
 };
 
 module.exports = {
 	createIncident: createIncident,
 	getAuthConfig: getAuthConfig,
 	deleteUploadedDirFiles: deleteUploadedDirFiles,
-	searchManual: searchManual
+	searchManual: searchManual,
+	createLunrIndex: createLunrIndex
 };
 
 // Public Methods <<< End
