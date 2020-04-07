@@ -18,11 +18,12 @@ const
 	settings = require( './lib/settings' ),
 	apis = require( './services/apis' ),
 	credentialInfo = require( './lib/credentials' ),
-	SOLMAN_URL = settings.SOLMAN_URL,
-	REDMINE_URL = settings.REDMINE_URL,
+	vcapApplication = ( process.env.VCAP_APPLICATION ) ? JSON.parse( process.env.VCAP_APPLICATION ) : undefined,
+	cloudThisAppId = ( vcapApplication ) ? vcapApplication.application_id : undefined,
 	UPLOAD_FILE_DIR = "./UploadedFiles",
 	axios = require('axios'),
-	moment = require("moment"),
+	moment = require('moment'),
+	momentBD = require('moment-business-days'),
 	{ URLSearchParams } = require( 'url' ),
 	queryString = require( 'querystring' ),
 	fs = require( 'fs' ),
@@ -36,16 +37,20 @@ const
 		console.log( `*** Duration of ${perfResult[0].name} is ${perfResult[0].duration} ***` );
 		performance.clearMarks();
 	}),
-	REDMINE_USER = credentialInfo.redmine.user,
-	REDMINE_PASSWORD = credentialInfo.redmine.pass,
+	/*
+	SOLMAN_URL = settings.SAP.SOLMAN_URL,
+	REDMINE_URL = settings.SAP.REDMINE_URL,
+	REDMINE_USER = credentialInfo.redmine.SAP.user,
+	REDMINE_PASSWORD = credentialInfo.redmine.SAP.pass,
 	REDMINE_TOKEN = Buffer.from(`${REDMINE_USER}:${REDMINE_PASSWORD}`, 'utf8').toString('base64'),
+	*/
 	REDMINE_HEADER_CONTENT_TYPE = 'application/json',
-	REDMINE_HEADER_BASICAUTH = `Basic ${REDMINE_TOKEN}`,
+	//REDMINE_HEADER_BASICAUTH = `Basic ${REDMINE_TOKEN}`,
 	ISSUE_JSON_FORM_FIELD_NAME = 'issue_info',
 	lunr = require('lunr')
 	;
 
-var
+let
 	createIncident,
 	getAuthConfig,
 	vcapServices,
@@ -59,13 +64,34 @@ var
 	_sendMailViaSolman,
 	_postSendMailRequest,
 	_logObjectValue,
-	_createIncidentBody
+	_createIncidentBody,
+	SOLMAN_URL = settings.SOLMAN_URL,
+	REDMINE_URL = settings.REDMINE_URL,
+	REDMINE_USER = credentialInfo.redmine.user,
+	REDMINE_PASSWORD = credentialInfo.redmine.pass,
+	REDMINE_TOKEN = Buffer.from(`${REDMINE_USER}:${REDMINE_PASSWORD}`, 'utf8').toString('base64'),
+	REDMINE_HEADER_BASICAUTH = `Basic ${REDMINE_TOKEN}`
 	;
 
 //==========================
 // Initialization tasks
 //==========================
 obs.observe({ entryTypes: ['measure'] });
+
+// Following SAP specific variables should be deleted after deploying on the customer's SCP.
+console.log(`@@@ The value of cloudThisAppId is ${cloudThisAppId} @@@`);
+
+if ( !cloudThisAppId || cloudThisAppId === settings.SAP.APP_ID ){
+	if ( cloudThisAppId ) console.log(`>>> This application must be running on ${vcapApplication.space_name} <<<`);
+	SOLMAN_URL = settings.SAP.SOLMAN_URL;
+	REDMINE_URL = settings.SAP.REDMINE_URL;
+	REDMINE_USER = credentialInfo.redmine.SAP.user;
+	REDMINE_PASSWORD = credentialInfo.redmine.SAP.pass;
+	REDMINE_TOKEN = Buffer.from(`${REDMINE_USER}:${REDMINE_PASSWORD}`, 'utf8').toString('base64');
+	REDMINE_HEADER_BASICAUTH = `Basic ${REDMINE_TOKEN}`;
+}
+
+console.log(`>>> SOLMAN_URL is ${SOLMAN_URL} <<<\n>>> REDMINE_URL is ${REDMINE_URL} <<<\n>>> REDMINE_USER is ${REDMINE_USER} <<<`);
 
 
 // Module Scope Variant <<< End
@@ -317,6 +343,7 @@ _createIncidentBody = ( res, recastMemory, incidentContents ) => {
 		execUserEtcInfo = recastMemory.bizErrUserInfoEtc || res.__( 'general.msgNoInfoFromCAI' ),
 		errorBackground = recastMemory.bizErrBackground ||  res.__( 'general.msgNoInfoFromCAI' )
 		;
+	let dueDateText;
 
 	// This value is not relevant for Redmine, and only necessary for mail creation in Solman.
 	// Even though irrelevant key is defined for redmine, it is OK to create the redmine ticket.
@@ -326,7 +353,14 @@ _createIncidentBody = ( res, recastMemory, incidentContents ) => {
 	incidentContents.issue.tracker_id = recastMemory.redmineTrackerId || 1;
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// !!! Should be changed to determine the due date without calculating holidays !!!
-	incidentContents.issue.due_date = ( recastMemory.arbitraryDueDate) ? recastMemory.arbitraryDueDate.raw : moment().add( recastMemory.defaultDueDate, 'days').format('YYYY-MM-DD');
+	incidentContents.issue.due_date = ( recastMemory.arbitraryDueDate) ? recastMemory.arbitraryDueDate.raw : momentBD().businessAdd( recastMemory.defaultDueDate, 'days').format('YYYY-MM-DD');
+	dueDateText = incidentContents.issue.due_date;
+
+	if ( moment( incidentContents.issue.due_date ).isSameOrBefore( moment().format('YYYY-MM-DD') ) || 
+	     !moment( incidentContents.issue.due_date ).isValid() ){
+		incidentContents.issue.due_date = momentBD().businessAdd( recastMemory.defaultDueDate, 'days').format('YYYY-MM-DD');
+		dueDateText = incidentContents.issue.due_date + res.__( 'createIncident.msgInvalidDueDate', { defaultDueDate: recastMemory.defaultDueDate } );
+	}
 	
 	switch ( recastMemory.ticket_priority.value ){
 		case 'high':
@@ -342,7 +376,7 @@ _createIncidentBody = ( res, recastMemory, incidentContents ) => {
 
 	incidentContents.issue.description = res.__( 'createIncident.incidentBody', { inquiryType: recastMemory.inquiry_type.raw,
 												  								  priority: recastMemory.ticket_priority.raw,
-																				  dueDate: incidentContents.issue.due_date,
+																				  dueDate: dueDateText,
 																				  issueDetail: recastMemory.issueDetail,
 																				  targetFunc: errorFunc,
 																				  execUserEtc: execUserEtcInfo,
@@ -458,17 +492,9 @@ createIncident = async ( res, recastMemory, incidentContents, convID, callback )
 	let 
 		replyMsg,
 		replyUrl,
-		mailContents = {
-			from: MAIL_FROM_ADDRESS,
-			to: MAIL_TO_ADDRESS,
-			//cc: MAIL_CC_ADDRESS,
-			subject: '',
-			text: ''
-		},
 		axiosOptions = authConfig || { headers: {} },
 		uploadedFilesInfo,
-		reporterDepartment,
-		vcapProxyPortSocks5
+		reporterDepartment
 		;
 
 	console.log( "=== Procedure: 'createIncident' ===" );
@@ -506,6 +532,9 @@ createIncident = async ( res, recastMemory, incidentContents, convID, callback )
 	console.log(`>>> axios options length: ${Object.keys(axiosOptions).length} <<<`);
 	_logObjectValue( axiosOptions );
 
+	console.log(`>>> incidentContents.issue (just before creating Redmine ticket) length: ${Object.keys(incidentContents.issue).length} <<<`);
+	_logObjectValue( incidentContents.issue );
+
 	// Incident creation.
 	performance.mark('createIncidentStart');
 	axios.post( REDMINE_CREATE_TICKET_URL, incidentContents, axiosOptions )
@@ -517,9 +546,6 @@ createIncident = async ( res, recastMemory, incidentContents, convID, callback )
 			console.log("=== Creation of ticket in Redmine is successfully finished. ===");
 			replyMsg = res.__('createIncident.msgSuccess', { subject: response.data.issue.subject });
 			replyUrl = REDMINE_URL + `/issues/${response.data.issue.id}`;
-			mailContents.subject = res.__('createIncident.mailSubject', { issueID: response.data.issue.id });
-			// I don't know why but the if the URL passed to the i18n locale text, the slash(/) changed to '&#x2F;', so added the URL here.
-			mailContents.text = res.__('createIncident.mailText', { title: response.data.issue.subject }) + replyUrl;
 		}
 		else {
 			console.error ("!!! Unexpected status in chatHistoryHandler, Status: " + response.status );
@@ -531,7 +557,10 @@ createIncident = async ( res, recastMemory, incidentContents, convID, callback )
 	})
 	.catch( function ( error ){
 		console.error( "!!! axios.post in createIncident is failed (catched error) !!!", error.message );
-		console.error( `!!! All error objects: ${error} !!!`);
+		if ( error.response.data.errors ){
+			let idx = 1;
+			error.response.data.errors.forEach( elm => { console.log( `!!! Redmine Error ${idx}: ${elm} !!!` ); idx++;} );
+		}
 		replyMsg = res.__('createIncident.msgFailed');
 
 		callback( res, replyMsg, replyUrl );

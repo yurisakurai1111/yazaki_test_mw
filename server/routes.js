@@ -112,17 +112,14 @@ _initItsmVariants = function() {
 
 	console.log( "=== Variant Initialization _initItsmVariants ===" );
 	//Incident contents for Redmine.
+	// * "assigned_to_id": 1 is omitted, because if non-existing id is specified the system returns HTTP 422 Unprocessable Entity during creation of Redmine ticket.
 	incidentContents = {
 		"issue": {
 		  "project_id": 1,
 		  "tracker_id": 1,
 		  "priority_id": 2,
 		  "subject": "Test ticket created by Node Application.",
-		  "description": "This is created via Node application.",
-		  "category_id": 1,
-		  "assigned_to_id": 1,
-		  "due_date": "2020-03-31",
-		  "estimated_hours": 8
+		  "description": "This is created via Node application."
 		}
 	};
 };
@@ -400,14 +397,24 @@ configRoutes = function( app, server )
 			}
 			else {
 				recastMemory.noManualFound = false;
+				const manualCatlog = require(`./lib/manuals/manuals_${convLang}`).manuals;
 
 				for ( let i = 0; i < manuals.length; i++ ){
 					if ( i === 5 ) break;
 
+					const manualDetail = manualCatlog.find( item => item.title === manuals[i].ref );
+					const linkToManual = ( manualDetail ) ? manualDetail.link : `Link to Not Found page should be here!`;
+					
 					const replyElemObj = {
 						title: `Manual: ${i + 1}`,
 						subtitle: manuals[i].ref,
-						buttons:[]
+						buttons:[
+							{
+								title: response.__( 'manual.linkToManual' ),
+								type: "web_url",
+								value: linkToManual
+							}
+						]
 					}
 	
 					replyElements.push( replyElemObj );
