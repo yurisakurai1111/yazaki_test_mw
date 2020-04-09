@@ -12,7 +12,7 @@
 		"msgFailed": "チケットの作成に失敗しました。\n\n",
 		"mailSubject": "Redmine のチケットを作成しました, イシュー ID: {{issueID}}。",
 		"mailText": "作成されたチケットのタイトルは、“{{title}}” です。\nチケットへのリンクは、こちらになります。\n",
-		"incidentBodyPrologue": "Dear Service Desk,\n\nThis is {{userName}} from {{userDepartment}}.\nPlease take care of the following inquiry.\n\n*****************\n- Division of inquirer: {{userName}}\n- Inquirer: {{userDepartment}}\n",
+		"incidentBodyPrologue": "Dear Service Desk,\n\nThis is {{userName}} from {{userDepartment}}.\nPlease take care of the following inquiry.\n\n*****************\n- Division of inquirer: {{userDepartment}}\n- Inquirer: {{userName}}\n",
 		"incidentBody": "- Inquiry type: {{inquiryType}}\n- Priority: {{priority}}\n- Preferred completion date of measure: {{dueDate}}\n\n- Details of question\n{{issueDetail}}\n\n- Target function\n{{targetFunc}}\n\n- Execution user ID & Target data\n{{execUserEtc}}\n\n- Background and purpose of the inquiry\n{{background}}\n\n- Reason for urgency\n{{reasonForHigh}}\n\nBest regards.",
 		"msgInvalidDueDate": "\n(入力された日付は無効な日付だったため、デフォルトの納期 ({{defaultDueDate}} days) を自動的に使用しています。)"
 	},

@@ -70,7 +70,8 @@ let
 	REDMINE_USER = credentialInfo.redmine.user,
 	REDMINE_PASSWORD = credentialInfo.redmine.pass,
 	REDMINE_TOKEN = Buffer.from(`${REDMINE_USER}:${REDMINE_PASSWORD}`, 'utf8').toString('base64'),
-	REDMINE_HEADER_BASICAUTH = `Basic ${REDMINE_TOKEN}`
+	REDMINE_HEADER_BASICAUTH = `Basic ${REDMINE_TOKEN}`,
+	isSAP = false
 	;
 
 //==========================
@@ -89,6 +90,7 @@ if ( !cloudThisAppId || cloudThisAppId === settings.SAP.APP_ID ){
 	REDMINE_PASSWORD = credentialInfo.redmine.SAP.pass;
 	REDMINE_TOKEN = Buffer.from(`${REDMINE_USER}:${REDMINE_PASSWORD}`, 'utf8').toString('base64');
 	REDMINE_HEADER_BASICAUTH = `Basic ${REDMINE_TOKEN}`;
+	isSAP = true;
 }
 
 console.log(`>>> SOLMAN_URL is ${SOLMAN_URL} <<<\n>>> REDMINE_URL is ${REDMINE_URL} <<<\n>>> REDMINE_USER is ${REDMINE_USER} <<<`);
@@ -343,7 +345,11 @@ _createIncidentBody = ( res, recastMemory, incidentContents ) => {
 		execUserEtcInfo = recastMemory.bizErrUserInfoEtc || res.__( 'general.msgNoInfoFromCAI' ),
 		errorBackground = recastMemory.bizErrBackground ||  res.__( 'general.msgNoInfoFromCAI' )
 		;
-	let dueDateText;
+
+	let 
+		dueDateText,
+		bizChatCategory
+		;
 
 	// This value is not relevant for Redmine, and only necessary for mail creation in Solman.
 	// Even though irrelevant key is defined for redmine, it is OK to create the redmine ticket.
@@ -382,6 +388,82 @@ _createIncidentBody = ( res, recastMemory, incidentContents ) => {
 																				  execUserEtc: execUserEtcInfo,
 																				  background: errorBackground,
 																				  reasonForHigh: recastMemory.reasonForHigh });
+
+	switch ( recastMemory.searchManId ){
+		case 'all':
+			bizChatCategory = '65';
+			break;
+		case 'biz':
+			bizChatCategory = '63';
+			break;
+		case 'ope':
+			bizChatCategory = '61';
+			break;
+		default:
+			bizChatCategory = '65';
+	}
+
+	// For Yazaki sepcific parameters.
+	if ( !isSAP ){
+		incidentContents.issue.project_id = 42;
+		incidentContents.issue.status_id = 11;
+		incidentContents.issue.assigned_to_id = 122,
+		incidentContents.issue.custom_fields = [
+			{
+				value: "未割当|unclassified",
+				id: 221
+			},
+			{
+				value: "267",
+				id: 178
+			},
+			{
+				value: "411",
+				id: 138
+			},
+			{
+				value: "Petrus",
+				id: 137
+			},
+			{
+				value: moment().format('YYYY-MM-DD'),
+				id: 44
+			},
+			{
+				value: "122",
+				id: 42
+			},
+			{
+				value: moment().format('YYYY-MM-DD'),
+				id: 41
+			},
+			{
+				value: incidentContents.issue.due_date,
+				id: 45
+			},
+			{
+				value: "247",
+				id: 174
+			},
+			{
+				value: bizChatCategory,
+				id: 135
+			},
+			{
+				value: "67",
+				id: 136
+			},
+			{
+				value: "84",
+				id: 134
+			},
+			{
+				value: "413",
+				id: 53
+			}
+		]
+	}
+
 	return ( incidentContents );
 };
 
