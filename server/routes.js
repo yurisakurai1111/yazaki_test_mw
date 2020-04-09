@@ -381,23 +381,42 @@ configRoutes = function( app, server )
 	app.post( PATH_SEARCH_MANUAL, passport.authenticate('basic', { session: false }), async (request, response) => {
 		console.log( `=== Route: ${request.path} ===` );
 
-		const convLang = request.body.conversation.language;
+		const 
+			lang = request.body.conversation.language,
+			manId = recastMemory.searchManId,
+			generalManDir = `./server/lib/manuals`,
+			lunrIndexFileName = `${generalManDir}/index/${lang}/lunr_${manId}_index_${lang}.json`,
+			requiredManualFile = `./lib/manuals/${lang}/${manId}_manuals_${lang}`,
+			manualsFile = `${generalManDir}/${lang}/${manId}_manuals_${lang}.js`
+			;
+
 		let serachTerms = recastMemory.manualSearchPhrase;
 
-		if ( convLang === 'ja' ){
+		console.log(`>>> Conversation language is ${lang}, and Manual ID is ${manId} <<<`);
+
+		//Translate Japanese search terms into English.
+		if ( lang === 'ja' ){
 			serachTerms = await apis.translateText( serachTerms, 'ja', 'en' );
 		}
 
-		reqHandlers.searchManual( convLang, serachTerms, ( manuals ) => {
+		reqHandlers.searchManual( lunrIndexFileName, serachTerms, ( manuals ) => {
 			let replyElements = [];
 
 			if ( manuals.length === 0 ){
 				recastMemory.noManualFound = true;
-				_replyWithMemory( response, 'text', 'No manual Found', recastMemory );
+				_replyWithMemory( response, 'text', response.__( 'manual.msgNoManualFound' ), recastMemory );
 			}
 			else {
+				let manualCatlog;
 				recastMemory.noManualFound = false;
-				const manualCatlog = require(`./lib/manuals/manuals_${convLang}`).manuals;
+
+				if ( manId === "all" ){
+					manualCatlog = JSON.parse( fs.readFileSync( manualsFile, 'utf8' ) );
+				}
+				else{
+					manualCatlog = require( requiredManualFile ).manuals;
+				}
+				
 
 				for ( let i = 0; i < manuals.length; i++ ){
 					if ( i === 5 ) break;
@@ -442,44 +461,89 @@ configRoutes = function( app, server )
 	app.post( '/create_lunr_index', async ( request, response ) => {
 		console.log( `=== Route: ${request.path} ===` );
 
+		const _deleteFileIfExist = ( fileName ) =>{
+			if ( fs.existsSync( fileName ) ){
+				try {
+					fs.unlinkSync( fileName );
+					console.log(`>>> ${fileName} was already existing and deleted before newly created <<<`);
+				}
+				catch( err ){
+					console.error( `!!! Error: Cannot delete the file ${fileName}.!!!` );
+					response.status(500).send(`!!! Error when deleting the file ${fileName} !!!`);
+				}
+			}
+		};
+
 		if ( !request.body.language ){ 
-			response.status(400).send('!!! No language information, specify the language id (e.g. "ja" ) in the body !!!'); 
+			response.status(400).send('!!! No language information, specify the language id (e.g. "language": "ja" ) in the body !!!'); 
+		}
+		else if ( !request.body.manId ) {
+			response.status(400).send('!!! No ID for manuals, specify the manual id (i.e. "manId": "biz" or "ope" ) in the body !!!'); 
 		}
 		else {
-			const lang = request.body.language;
-			const generateKeywords = request.body.generateKeywords || false;
-			const lunrIndexFileName = `./server/lib/manuals/index/lunr_index_${lang}.json`;
-			const requiredManualFile = `./lib/manuals/manuals_${lang}`;
-			const manualsFile = `./server/lib/manuals/manuals_${lang}.js`;
+			const 
+				lang = request.body.language,
+				manId = request.body.manId,
+				generateKeywords = request.body.generateKeywords || false,
+				generalManDir = `./server/lib/manuals`,
+				manualFileLangDir = `${generalManDir}/${lang}`,
+				lunrIndexFileName = `${generalManDir}/index/${lang}/lunr_${manId}_index_${lang}.json`,
+				requiredManualFile = `./lib/manuals/${lang}/${manId}_manuals_${lang}`,
+				manualsFile = `${generalManDir}/${lang}/${manId}_manuals_${lang}.js`
+				;
 
-			if ( !fs.existsSync( `${manualsFile}` ) ){
-				response.status(500).send(`!!! Cannot find the file ${manualsFile} !!!`);
-				console.error( `!!! Cannot find the file ${manualsFile} !!!` );
+			if ( manId === "all" ){
+				if ( !fs.existsSync( `${manualFileLangDir}` ) ){
+					response.status(500).send(`!!! Cannot find the directory ${manualFileLangDir} !!!`);
+					console.error( `!!! Cannot find the directory ${manualFileLangDir} !!!` );
+				}
+				else {
+					_deleteFileIfExist( manualsFile );
+
+					const allManuals = fs.readdirSync( manualFileLangDir );
+					let allManCatalogue = [];
+
+					allManuals.forEach( (fn) =>{
+						let manCatalogue = `${manualFileLangDir}/${fn}`;
+						manCatalogue = manCatalogue.replace('/server', '');
+
+						allManCatalogue = allManCatalogue.concat( require( manCatalogue ).manuals );
+					})
+
+					fs.writeFile( manualsFile, JSON.stringify( allManCatalogue ), ( err ) =>{
+						if ( err ) throw err;
+						console.log(`>>> ${manualsFile} is written <<<`);
+						//let reqMan = JSON.parse( fs.readFileSync( manualsFile, 'utf8' ) );
+						//console.dir( reqMan );
+					} );
+
+					_deleteFileIfExist( lunrIndexFileName );
+
+					reqHandlers.createLunrIndex( allManCatalogue, lunrIndexFileName );
+					response.send(`${lunrIndexFileName} is created.`);
+				}
 			}
 			else {
-
-				let manuals = require( requiredManualFile ).manuals;
-
-				if ( generateKeywords && lang === 'ja' ){
-					for ( let manual of manuals ){
-						// This updates the file (object) contents, even though the contents of file is not really updated.
-						manual['keywords'] = await apis.translateText( manual['title'], 'ja', 'en' );
-					}
+				if ( !fs.existsSync( `${manualsFile}` ) ){
+					response.status(500).send(`!!! Cannot find the file ${manualsFile} !!!`);
+					console.error( `!!! Cannot find the file ${manualsFile} !!!` );
 				}
+				else {
 
-				if ( fs.existsSync( lunrIndexFileName ) ){
-					try {
-						fs.unlinkSync( lunrIndexFileName );
-						console.log(`>>> ${lunrIndexFileName} was already existing and deleted before newly created <<<`);
+					let manuals = require( requiredManualFile ).manuals;
+
+					if ( generateKeywords && lang === 'ja' ){
+						for ( let manual of manuals ){
+							// This updates the file (object) contents, even though the contents of file is not really updated.
+							manual['keywords'] = await apis.translateText( manual['title'], 'ja', 'en' );
+						}
 					}
-					catch( err ){
-						console.error( `!!! Error: Cannot delete the file ${lunrIndexFileName}.!!!` );
-						response.status(500).send(`!!! Error when deleting the file ${lunrIndexFileName} !!!`);
-					}
+
+					_deleteFileIfExist( lunrIndexFileName );
+
+					reqHandlers.createLunrIndex( manuals, lunrIndexFileName );
+					response.send(`${lunrIndexFileName} is created.`);
 				}
-
-				reqHandlers.createLunrIndex( lang, lunrIndexFileName );
-				response.send(`${lunrIndexFileName} is created.`);
 			}
 		}
 		

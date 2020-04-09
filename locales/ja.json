@@ -4,7 +4,8 @@
 		"msgNoInforFromSolman": "( Solution Manager から情報を取得できませんでした )"
 	},
 	"manual":{
-		"linkToManual": "マニュアルへのリンク"
+		"linkToManual": "マニュアルへのリンク",
+		"msgNoManualFound": "該当するマニュアルを見つけられませんでした。"
 	},
 	"createIncident": {
 		"msgSuccess": "Redmine のチケットを作成しました。タイトル: {{subject}}。",

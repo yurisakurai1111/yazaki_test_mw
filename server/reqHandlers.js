@@ -570,17 +570,15 @@ createIncident = async ( res, recastMemory, incidentContents, convID, callback )
 	//<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 };
 
-createLunrIndex = ( lang, lunrIndexFileName ) => {
+createLunrIndex = ( manuals, lunrIndexFileName ) => {
 	console.log(`=== createLunrIndex ===`);
-
-	let manuals;
 
 	// lunr-languagesは分かち書き時に使われる。検索のみ行うときはこれらの require は必要ない。
 	require('lunr-languages/lunr.stemmer.support.js')(lunr);
 	require('lunr-languages/tinyseg.js')(lunr);
 	require('lunr-languages/lunr.ja.js')(lunr);	
 
-	const idx = lunr( async function(){
+	const idx = lunr( function(){
 
 		const 
 			refKeyName = 'title',
@@ -603,7 +601,7 @@ createLunrIndex = ( lang, lunrIndexFileName ) => {
 		//this.k1( 1.2 );
 		//this.b( 0.75 );
 
-		
+		/*
 		switch( lang ){
 			case 'ja':
 				manuals = require('./lib/manuals/manuals_ja').manuals;
@@ -613,6 +611,7 @@ createLunrIndex = ( lang, lunrIndexFileName ) => {
 				manuals = require('./lib/manuals/manuals_en').manuals;
 				break;
 		}
+		*/
 
 		manuals.forEach( function ( doc ) {
 			this.add( doc );
@@ -627,34 +626,32 @@ createLunrIndex = ( lang, lunrIndexFileName ) => {
 	catch( err ){ return err; }
 };
 
-searchManual = ( lang, searchTerms, cb ) => {
+searchManual = ( lunrIndexFileName, searchTerms, cb ) => {
 	console.log(`=== searchManual ===`);
-
-	const lunrIndexFileName = `./server/lib/manuals/index/lunr_index_${lang}.json`;
 
 	// Check whether the index file is alredy existing or not, if yes, return, if no create the index.
 	if ( fs.existsSync( lunrIndexFileName ) ) { 
-		console.log(`--- ${lunrIndexFileName} is already existing ---`)
+		console.log(`>>> ${lunrIndexFileName} is existing as expected <<<`);
+
+		fs.readFile( lunrIndexFileName, 'utf-8', (err, indexData ) => {
+			if ( err ){
+				console.error(`!!! Reading the file ${lunrIndexFileName} is failed !!!`);
+				throw err;
+			}
+			const idx = lunr.Index.load( JSON.parse( indexData ) );
+			
+			console.log(`>>> Search term is ${searchTerms} <<<`);
+	
+			const searchResult = idx.search( searchTerms );
+			console.log(`>>> Search result: ${searchResult} <<<`);
+	
+			cb( searchResult );
+		})
 	}
 	else {
-		const err = createLunrIndex( lang, lunrIndexFileName );
-		if ( err ) { console.error(`!!! Error at createLunrIndex procedure -> ${err} !!!`); return err }
-	}
-
-	fs.readFile( lunrIndexFileName, 'utf-8', (err, indexData ) => {
-		if ( err ){
-			console.error(`!!! Reading the file ${lunrIndexFileName} is failed !!!`);
-			throw err;
-		}
-		const idx = lunr.Index.load( JSON.parse( indexData ) );
-		
-		console.log(`>>> Search term is ${searchTerms} <<<`);
-
-		const searchResult = idx.search( searchTerms );
-		console.log(`>>> Search result: ${searchResult} <<<`);
-
-		cb( searchResult );
-	})
+		console.error(`!!! No index file named ${lunrIndexFileName} exists, create it beforehand !!!`);
+		return;
+	} 
 	
 };
 

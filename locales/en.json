@@ -4,7 +4,8 @@
 		"msgNoInforFromSolman": "( No information came from Solman )"
 	},
 	"manual":{
-		"linkToManual": "Link to Manual"
+		"linkToManual": "Link to Manual",
+		"msgNoManualFound": "No suitable manual found."
 	},
 	"createIncident": {
 		"msgSuccess": "Redmine Ticket is created with the subject {{subject}}.",
