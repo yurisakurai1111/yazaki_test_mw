@@ -26,7 +26,8 @@ const
 	errorHandler = require('errorhandler'),
 	i18n = require( 'i18n' ),
 	// My libraries
-	routes = require( './server/routes' )
+	routes = require( './server/routes' ),
+	cors = require('cors')
 	;
 
 // Module Scope Variant <<< End
@@ -42,6 +43,7 @@ app.set( 'view engine', 'ejs' );
 app.use( bodyParser.json() );
 app.use( methodOverride() );
 app.use( express.static( __dirname ) );
+app.use(cors());
 //app.use( express.static( __dirname + '/frontend' ) );
 
 i18n.configure({

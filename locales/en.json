@@ -1,7 +1,9 @@
 {
 	"general":{
 		"msgNoInfoFromCAI": "( No information came from CAI )",
-		"msgNoInforFromSolman": "( No information came from Solman )"
+		"msgNoInforFromSolman": "( No information came from Solman )",
+		"btnIncidentTitle": "Ticket Information",
+		"btnIncidentLink": "Link to the ticket"
 	},
 	"manual":{
 		"linkToManual": "Link to Manual",

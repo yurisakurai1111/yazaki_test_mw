@@ -1,7 +1,9 @@
 {
 	"general": {
 		"msgNoInfoFromCAI": "( CAI から情報を取得していません )",
-		"msgNoInforFromSolman": "( Solution Manager から情報を取得できませんでした )"
+		"msgNoInforFromSolman": "( Solution Manager から情報を取得できませんでした )",
+		"btnIncidentTitle": "チケット情報",
+		"btnIncidentLink": "チケットへのリンク"
 	},
 	"manual":{
 		"linkToManual": "マニュアルへのリンク",
