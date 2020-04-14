@@ -645,7 +645,7 @@ createIncident = async ( res, recastMemory, incidentContents, convID, callback )
 
 		if ( response.status === 201 ){
 			console.log("=== Creation of ticket in Redmine is successfully finished. ===");
-			replyMsg = res.__('createIncident.msgSuccess', { subject: response.data.issue.subject });
+			replyMsg = res.__('createIncident.msgSuccess', { ticketNumber: response.data.issue.id, subject: response.data.issue.subject });
 			replyUrl = REDMINE_URL + `/issues/${response.data.issue.id}`;
 		}
 		else {
