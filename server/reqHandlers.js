@@ -22,7 +22,7 @@ const
 	cloudThisAppId = ( vcapApplication ) ? vcapApplication.application_id : undefined,
 	UPLOAD_FILE_DIR = "./UploadedFiles",
 	axios = require('axios'),
-	moment = require('moment'),
+	moment = require('moment-timezone'),
 	momentBD = require('moment-business-days'),
 	{ URLSearchParams } = require( 'url' ),
 	queryString = require( 'querystring' ),
@@ -78,6 +78,7 @@ let
 // Initialization tasks
 //==========================
 obs.observe({ entryTypes: ['measure'] });
+console.log(`### Current date (JST): ${moment().tz('Asia/Tokyo').format('YYYY-MM-DD HH:mm:ss')} ###`);
 
 // Following SAP specific variables should be deleted after deploying on the customer's SCP.
 console.log(`@@@ The value of cloudThisAppId is ${cloudThisAppId} @@@`);
@@ -210,6 +211,7 @@ _sendMailViaSolman = ( convId, issueContents ) => {
 	}
 
 	return new Promise( async function ( resolve, reject ){
+		/* >>> This part is eliminated because the function to attach files is abondaned >>>
 		// Check whether relevant uploaded files are existing.
 		try {
 			_fileNames = fs.readdirSync( _uploadedDir );
@@ -220,6 +222,7 @@ _sendMailViaSolman = ( convId, issueContents ) => {
 			//err.noAttachFile = true;
 			//reject( err );
 		}
+		<<<<<<<<<*/
 
 		// If attached file(s) are existing.
 		/*
@@ -244,10 +247,10 @@ _sendMailViaSolman = ( convId, issueContents ) => {
 		*/
 		try {
 			const resData = await _postSendMailRequest( _uploadedDir, _fileNames, issueKeyUpperCase );
-			resolve( resData[0].MESSAGE_V3 );
+			resolve( resData[0] );
 		}
 		catch( err ){
-			console.error( "!!! Failed to send/append mail in Solman !!!", _fileNames );
+			console.error( "!!! Failed to send the mail in Solman !!!" );
 			//await deleteUploadedDirFiles( _uploadedDir ).catch( (err) => { console.error( "!!! [Can be ingored?] Error was happened at deleting file(s) (in _attachFilesProc) !!!", err ); });;
 			reject( err );
 		}
@@ -278,6 +281,8 @@ _postSendMailRequest = ( dir, fileNames, issueObjKeyUpper ) => {
 		}
 	}
 
+	// If the content-type: "application/json" is specified fro this text part of mutipart/form-data,
+	// ABAP does not get the data ( checked via ARC ).
 	_formData.append( ISSUE_JSON_FORM_FIELD_NAME, issueJson );
 
 	// _formData.getHeaders()メソッドでHTTPヘッダを取得して、axiosに渡す必要がある点に注意が必要。
@@ -343,7 +348,8 @@ _createIncidentBody = ( res, recastMemory, incidentContents ) => {
 	const
 		errorFunc = recastMemory.bizErrFunc || res.__( 'general.msgNoInfoFromCAI' ),
 		execUserEtcInfo = recastMemory.bizErrUserInfoEtc || res.__( 'general.msgNoInfoFromCAI' ),
-		errorBackground = recastMemory.bizErrBackground ||  res.__( 'general.msgNoInfoFromCAI' )
+		errorBackground = recastMemory.bizErrBackground ||  res.__( 'general.msgNoInfoFromCAI' ),
+		CURRENT_MOMENT = moment().tz('Asia/Tokyo')
 		;
 
 	let 
@@ -359,13 +365,14 @@ _createIncidentBody = ( res, recastMemory, incidentContents ) => {
 	incidentContents.issue.tracker_id = recastMemory.redmineTrackerId || 1;
 	// !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 	// !!! Should be changed to determine the due date without calculating holidays !!!
-	incidentContents.issue.due_date = ( recastMemory.arbitraryDueDate) ? recastMemory.arbitraryDueDate.raw : momentBD().businessAdd( recastMemory.defaultDueDate, 'days').format('YYYY-MM-DD');
+	incidentContents.issue.due_date = ( recastMemory.arbitraryDueDate ) ? recastMemory.arbitraryDueDate.raw : momentBD( CURRENT_MOMENT ).businessAdd( recastMemory.defaultDueDate, 'days').format('YYYY-MM-DD');
 	dueDateText = incidentContents.issue.due_date;
 
-	if ( moment( incidentContents.issue.due_date ).isSameOrBefore( moment().format('YYYY-MM-DD') ) || 
+	if ( moment( incidentContents.issue.due_date ).isSameOrBefore( CURRENT_MOMENT.format('YYYY-MM-DD') ) || 
 	     !moment( incidentContents.issue.due_date ).isValid() ){
-		incidentContents.issue.due_date = momentBD().businessAdd( recastMemory.defaultDueDate, 'days').format('YYYY-MM-DD');
-		dueDateText = incidentContents.issue.due_date + res.__( 'createIncident.msgInvalidDueDate', { defaultDueDate: recastMemory.defaultDueDate } );
+		const invalidDate = incidentContents.issue.due_date;
+		incidentContents.issue.due_date = momentBD( CURRENT_MOMENT ).businessAdd( recastMemory.defaultDueDate, 'days').format('YYYY-MM-DD');
+		dueDateText = incidentContents.issue.due_date + res.__( 'createIncident.msgInvalidDueDate', { inputDate: invalidDate, defaultDueDate: recastMemory.defaultDueDate } );
 	}
 	
 	switch ( recastMemory.ticket_priority.value ){
@@ -422,11 +429,11 @@ _createIncidentBody = ( res, recastMemory, incidentContents ) => {
 				id: 138
 			},
 			{
-				value: "Petrus",
+				value: "",
 				id: 137
 			},
 			{
-				value: moment().format('YYYY-MM-DD'),
+				value: moment().tz('Asia/Tokyo').format('YYYY-MM-DD'),
 				id: 44
 			},
 			{
@@ -434,7 +441,7 @@ _createIncidentBody = ( res, recastMemory, incidentContents ) => {
 				id: 42
 			},
 			{
-				value: moment().format('YYYY-MM-DD'),
+				value: moment().tz('Asia/Tokyo').format('YYYY-MM-DD'),
 				id: 41
 			},
 			{
@@ -576,6 +583,7 @@ createIncident = async ( res, recastMemory, incidentContents, convID, callback )
 		replyUrl,
 		axiosOptions = authConfig || { headers: {} },
 		uploadedFilesInfo,
+		responseData,
 		reporterDepartment
 		;
 
@@ -584,13 +592,22 @@ createIncident = async ( res, recastMemory, incidentContents, convID, callback )
 	_createIncidentBody( res, recastMemory, incidentContents );
 
 	// Sending the e-mail via Solution Manager with attachment(s) if it exists,
-	// and get the department name of user.
-	reporterDepartment = await _sendMailViaSolman( convID, incidentContents.issue ).catch( ( err ) => { console.error(`!!! Catched Error when sending e-mail with attachments > "${err.message}" !!!`) });
+	// and get the department (MESSAGE_V3) & complete name (MESSAGE_V4) of user.
+	responseData = await _sendMailViaSolman( convID, incidentContents.issue ).catch( ( err ) => { console.error(`!!! Catched Error when sending e-mail with attachments > "${err.message}" !!!`) });
 
-	// Now I got the department information of user, so I can input it now.
-	const userDepartment = reporterDepartment || res.__( 'general.msgNoInforFromSolman' );
-	incidentContents.issue.description = res.__( 'createIncident.incidentBodyPrologue', { userName: incidentContents.issue.reporter, userDepartment: userDepartment } )
-	                                     + incidentContents.issue.description;
+	// Now I got the compole name & department information of user, so I can input it now.
+	const 
+		userDepartment = responseData.MESSAGE_V3 || res.__( 'general.msgNoInforFromSolman' ),
+		completeUserName = responseData.MESSAGE_V4 || res.__( 'general.msgNoInforFromSolman' )
+		;
+
+	incidentContents.issue.description = res.__( 'createIncident.incidentBodyPrologue', { userName: completeUserName, userDepartment: userDepartment } )
+										 + incidentContents.issue.description;
+	
+	// Change the value of id 137 in the custom field of redmine issue.
+	if ( incidentContents.issue.custom_fields ){
+		incidentContents.issue.custom_fields.forEach( elm => { if ( elm["id"] === 137 ) elm["value"] = completeUserName });
+	}
 
 	//>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 	// START: Redmine ticket creation
@@ -602,10 +619,12 @@ createIncident = async ( res, recastMemory, incidentContents, convID, callback )
 	
 	axiosOptions.headers.Authorization = REDMINE_HEADER_BASICAUTH;
 
+	/* >>> This part is eliminated because the function to attach files is abandoned. >>>
 	// File Attachment processing block
 	uploadedFilesInfo = await _getFileTokenByUpload( convID )
 						.catch( ( err ) => { console.error(`!!! Catched Error when getting uploaded file(s) information with the message "${err.message}" !!!`); });
-	
+	<<<<*/
+
 	if ( uploadedFilesInfo ) incidentContents.issue.uploads = uploadedFilesInfo;
 
 	// Because the following value was changed in the sub procedure, it is necessary to set it here, just before axios.post.

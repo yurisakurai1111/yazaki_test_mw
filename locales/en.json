@@ -16,7 +16,7 @@
 		"mailText": "Created ticket's title is {{title}}.\nHere is link to the ticket.\n",
 		"incidentBodyPrologue": "Dear Service Desk,\n\nThis is {{userName}} from {{userDepartment}}.\nPlease take care of the following inquiry.\n\n*****************\n- Division of inquirer: {{userDepartment}}\n- Inquirer: {{userName}}\n",
 		"incidentBody": "- Inquiry type: {{inquiryType}}\n- Priority: {{priority}}\n- Preferred completion date of measure: {{dueDate}}\n\n- Details of question\n{{issueDetail}}\n\n- Target function\n{{targetFunc}}\n\n- Execution user ID & Target data\n{{execUserEtc}}\n\n- Background and purpose of the inquiry\n{{background}}\n\n- Reason for urgency\n{{reasonForHigh}}\n\nBest regards.",
-		"msgInvalidDueDate": "\n(Input date was invalid, so the default due date ({{defaultDueDate}} days) is inserted automatically)"
+		"msgInvalidDueDate": "\n(Input date [{{inputDate}}] was invalid, so the default due date ({{defaultDueDate}} days) is inserted automatically)"
 	},
 	"attachFiles": {
 		"msgAttachFailed": "Even though the file(s) should be attached are existing, the error was happened while sending/attaching(_attachFilesProc) files to ABAP side.\nThe reason is as follow.\n"

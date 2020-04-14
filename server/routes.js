@@ -36,8 +36,7 @@ const
  	xsenv = require('@sap/xsenv'),
  	JWTStrategy = require('@sap/xssec').JWTStrategy,
 	caiAuth = require('./lib/credentials').CAI_BASIC_AUTH,
-	LOCAL_TEST = ( PROCMODE === "TEST" ) ? true : false,
-	moment = require("moment")
+	LOCAL_TEST = ( PROCMODE === "TEST" ) ? true : false
 	;
 
 var
@@ -382,24 +381,30 @@ configRoutes = function( app, server )
 		console.log( `=== Route: ${request.path} ===` );
 
 		const 
-			lang = request.body.conversation.language,
-			manId = recastMemory.searchManId,
+			lang = recastMemory.docSearchLangKey || request.body.conversation.language,
+			manId = recastMemory.searchManId || "all",
 			generalManDir = `./server/lib/manuals`,
 			lunrIndexFileName = `${generalManDir}/index/${lang}/lunr_${manId}_index_${lang}.json`,
 			requiredManualFile = `./lib/manuals/${lang}/${manId}_manuals_${lang}`,
 			manualsFile = `${generalManDir}/${lang}/${manId}_manuals_${lang}.js`
 			;
 
-		let serachTerms = recastMemory.manualSearchPhrase;
+		let searchTerms = recastMemory.manualSearchPhrase;
 
-		console.log(`>>> Conversation language is ${lang}, and Manual ID is ${manId} <<<`);
+		console.log(`>>> Document search language is ${lang}, and Manual ID is ${manId} <<<`);
 
 		//Translate Japanese search terms into English.
 		if ( lang === 'ja' ){
-			serachTerms = await apis.translateText( serachTerms, 'ja', 'en' );
+			searchTerms = await apis.translateText( searchTerms, 'ja', 'en' );
 		}
 
-		reqHandlers.searchManual( lunrIndexFileName, serachTerms, ( manuals ) => {
+		// This part is for avoiding the crash of application.
+		// Normally ":" is used for specifying the field to be searched in Lunr (https://lunrjs.com/guides/searching.html).
+		searchTerms = searchTerms.replace( ':', '' );
+
+		console.log( `>>> Search Terms just before seraching: ${searchTerms} <<<` );
+
+		reqHandlers.searchManual( lunrIndexFileName, searchTerms, ( manuals ) => {
 			let replyElements = [];
 
 			if ( manuals.length === 0 ){
