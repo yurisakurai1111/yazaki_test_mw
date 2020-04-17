@@ -27,9 +27,15 @@ const translateText = ( text, sourceLang, targetLang ) => {
 							source: sourceLang,
 							target: targetLang };
 	
+	console.log(`>>> Text Before Translation: ${text} <<<`);
+	
+	performance.mark('transStart');
+
 	return new Promise( ( resolve, reject ) => {
 		axios.get( googleTransURL, axiosOptions )
 		.then( ( res ) => {
+			performance.mark('transEnd');
+			performance.measure( 'Translation Text', 'transStart', 'transEnd' );
 			console.log(`>>> Translation result: ${res.data} <<<`);
 			resolve( res.data );
 		})

@@ -47,7 +47,8 @@ const
 	REDMINE_HEADER_CONTENT_TYPE = 'application/json',
 	//REDMINE_HEADER_BASICAUTH = `Basic ${REDMINE_TOKEN}`,
 	ISSUE_JSON_FORM_FIELD_NAME = 'issue_info',
-	lunr = require('lunr')
+	lunr = require('lunr'),
+	he = require('he')
 	;
 
 let
@@ -395,6 +396,9 @@ _createIncidentBody = ( res, recastMemory, incidentContents ) => {
 																				  execUserEtc: execUserEtcInfo,
 																				  background: errorBackground,
 																				  reasonForHigh: recastMemory.reasonForHigh });
+	
+	// Decoding HTML entity (e.g. &#x2F; -> (slash "/") etc)
+	incidentContents.issue.description = he.decode( incidentContents.issue.description );
 
 	switch ( recastMemory.searchManId ){
 		case 'all':
@@ -741,10 +745,14 @@ searchManual = ( lunrIndexFileName, searchTerms, cb ) => {
 			}
 			const idx = lunr.Index.load( JSON.parse( indexData ) );
 			
-			console.log(`>>> Search term is ${searchTerms} <<<`);
+			console.log( `>>> Search Terms just before seraching: ${searchTerms} <<<` );
+			performance.mark( 'serachManualStart' );
 	
 			const searchResult = idx.search( searchTerms );
+
 			console.log(`>>> Search result: ${searchResult} <<<`);
+			performance.mark( 'serachManualEnd' );
+			performance.measure( 'Searching manuals', 'serachManualStart', 'serachManualEnd' );
 	
 			cb( searchResult );
 		})

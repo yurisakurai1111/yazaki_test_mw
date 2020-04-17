@@ -395,14 +395,26 @@ configRoutes = function( app, server )
 
 		//Translate Japanese search terms into English.
 		if ( lang === 'ja' ){
+			// Not really sure but if the text with '*'(asterisk) is transalted, it is returned with space before asterisk.
+			// e.g. "ZCMT*" is returned "ZCMT *".
+			// So if the asterisk postion is different after the translation, it is necessary to delete the space.
+			const
+				asteriskExp = /\*/g, 
+				asteriskAt = searchTerms.search( asteriskExp )
+				;
+			
 			searchTerms = await apis.translateText( searchTerms, 'ja', 'en' );
+
+			if ( asteriskAt !== -1 ){
+				searchTerms = searchTerms.replace( '\* ', '\*' ); // Asterisk + Space becomes Asterisk.
+				searchTerms = searchTerms.replace( ' \*', '\*' ); // Space + Asterisk becomes Asterisk.
+				console.log( `>>> Space around asterisk is deleted, and the result is "${searchTerms}" <<<` );
+			}
 		}
 
 		// This part is for avoiding the crash of application.
 		// Normally ":" is used for specifying the field to be searched in Lunr (https://lunrjs.com/guides/searching.html).
 		searchTerms = searchTerms.replace( ':', '' );
-
-		console.log( `>>> Search Terms just before seraching: ${searchTerms} <<<` );
 
 		reqHandlers.searchManual( lunrIndexFileName, searchTerms, ( manuals ) => {
 			let replyElements = [];
