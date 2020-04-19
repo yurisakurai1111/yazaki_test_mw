@@ -501,7 +501,7 @@ getAuthConfig = function ( callback ){
 		vcapClientSecret = vcapServices.connectivity[0].credentials.clientsecret,
 		vcapProxyHost = vcapServices.connectivity[0].credentials.onpremise_proxy_host,
 		vcapProxyPort = vcapServices.connectivity[0].credentials.onpremise_proxy_port,
-		vcapXsuaaURL = vcapServices.connectivity[0].credentials.url;
+		vcapXsuaaURL = vcapServices.connectivity[0].credentials.url,
 		scpParams = {
 			username: credentialInfo.SCP.mailAddr,
 			password: credentialInfo.SCP.password,

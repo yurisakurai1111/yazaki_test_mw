@@ -410,6 +410,7 @@ configRoutes = function( app, server )
 				searchTerms = searchTerms.replace( ' \*', '\*' ); // Space + Asterisk becomes Asterisk.
 				console.log( `>>> Space around asterisk is deleted, and the result is "${searchTerms}" <<<` );
 			}
+			
 		}
 
 		// This part is for avoiding the crash of application.
