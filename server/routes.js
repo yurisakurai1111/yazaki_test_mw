@@ -405,11 +405,13 @@ configRoutes = function( app, server )
 			
 			searchTerms = await apis.translateText( searchTerms, 'ja', 'en' );
 
+			/*
 			if ( asteriskAt !== -1 ){
 				searchTerms = searchTerms.replace( '\* ', '\*' ); // Asterisk + Space becomes Asterisk.
 				searchTerms = searchTerms.replace( ' \*', '\*' ); // Space + Asterisk becomes Asterisk.
 				console.log( `>>> Space around asterisk is deleted, and the result is "${searchTerms}" <<<` );
 			}
+			*/
 			
 		}
 

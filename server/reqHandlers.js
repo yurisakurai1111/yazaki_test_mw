@@ -495,7 +495,7 @@ getAuthConfig = function ( callback ){
 		console.error("Cannot get the environment variable 'process.env.VCAP_SERVICES'.");
 		return( "Cannot get environment variable 'process.env.VCAP_SERVICES'.\nIs this really running SCP environment?\nIt must be runnning on the local environment." );
 	}
-
+	/*
 	const
 		vcapClientID = vcapServices.connectivity[0].credentials.clientid,
 		vcapClientSecret = vcapServices.connectivity[0].credentials.clientsecret,
@@ -512,8 +512,22 @@ getAuthConfig = function ( callback ){
 		},
 		accTokenURL = vcapXsuaaURL + '/oauth/token'
 		;
+	*/
+	const
+		vcapClientID = vcapServices.connectivity[0].credentials.clientid,
+		vcapClientSecret = vcapServices.connectivity[0].credentials.clientsecret,
+		vcapProxyHost = vcapServices.connectivity[0].credentials.onpremise_proxy_host,
+		vcapProxyPort = vcapServices.connectivity[0].credentials.onpremise_proxy_port,
+		vcapXsuaaURL = vcapServices.connectivity[0].credentials.url,
+		scpParams = {
+			grant_type: 'client_credentials',
+		},
+		accTokenURL = vcapXsuaaURL + '/oauth/token',
+		basicAuthToken = Buffer.from(`${vcapClientID}:${vcapClientSecret}`, 'utf8').toString('base64')
+		;
 
-	axios.post( accTokenURL, queryString.stringify( scpParams ), { headers: { 'Accept': 'application/json;charset=utf8', 'Content-Type': 'application/x-www-form-urlencoded' } } )
+	//axios.post( accTokenURL, queryString.stringify( scpParams ), { headers: { 'Accept': 'application/json;charset=utf8', 'Content-Type': 'application/x-www-form-urlencoded' } } )
+	axios.post( accTokenURL, queryString.stringify( scpParams ), { headers: { 'Accept': 'application/json;charset=utf8', 'Content-Type': 'application/x-www-form-urlencoded', 'Authorization': `Basic ${basicAuthToken}` } } )
 	.then( function ( response ){
 		var 
 			proxAuthRaw = response.data.access_token,
